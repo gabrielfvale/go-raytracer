@@ -1,4 +1,4 @@
-package linalg
+package geom
 
 import (
 	"fmt"

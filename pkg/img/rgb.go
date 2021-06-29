@@ -1,10 +1,10 @@
 package img
 
-import "github.com/gabrielfvale/go-traytracer/pkg/linalg"
+import "github.com/gabrielfvale/go-traytracer/pkg/geom"
 
 // Type definition for RGB
 type RGB struct {
-	linalg.Vec3
+	geom.Vec3
 }
 
 // Creates a new RGB, given r, g and b values
