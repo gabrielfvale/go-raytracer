@@ -13,7 +13,7 @@ type Vec3 struct {
 
 // Creates a new Vec3, given x, y and z values
 func NewVec3(x, y, z float64) (v Vec3) {
-	v.E[0] = z
+	v.E[0] = x
 	v.E[1] = y
 	v.E[2] = z
 	return
@@ -21,12 +21,12 @@ func NewVec3(x, y, z float64) (v Vec3) {
 
 // X returns the X coordinate of a given Vec3 v
 func (v Vec3) X() float64 {
-	return v.E[1]
+	return v.E[0]
 }
 
 // Y returns the Y coordinate of a given Vec3 v
 func (v Vec3) Y() float64 {
-	return v.E[2]
+	return v.E[1]
 }
 
 // Z returns the Z coordinate of a given Vec3 v
