@@ -3,13 +3,24 @@ package main
 import (
 	"fmt"
 
+	"github.com/gabrielfvale/go-traytracer/pkg/geom"
+	"github.com/gabrielfvale/go-traytracer/pkg/img"
 	"github.com/veandco/go-sdl2/sdl"
 )
 
+func color(r geom.Ray) img.RGB {
+	t := 0.5 * (r.Dir.Y() + 1.0)
+	c1 := img.NewRGB(1.0, 1.0, 1.0).Scale(1.0 - t)
+	c2 := img.NewRGB(0.5, 0.7, 1.0).Scale(t)
+	return c1.Plus(c2)
+}
+
 func main() {
 
-	const w int = 512
-	const h int = 512
+	const aspect float64 = 16 / 9
+	const width int = 640
+	const height int = int(float64(width) / aspect)
+	fmt.Println(width, height)
 
 	if err := sdl.Init(sdl.INIT_EVERYTHING); err != nil {
 		panic(err)
@@ -17,7 +28,7 @@ func main() {
 	defer sdl.Quit()
 
 	window, err := sdl.CreateWindow("GO Raytracer", sdl.WINDOWPOS_UNDEFINED, sdl.WINDOWPOS_UNDEFINED,
-		int32(w), int32(h), sdl.WINDOW_SHOWN)
+		int32(width), int32(height), sdl.WINDOW_SHOWN)
 	if err != nil {
 		panic(err)
 	}
@@ -30,7 +41,7 @@ func main() {
 	defer renderer.Destroy()
 
 	texture, err := renderer.CreateTexture(sdl.PIXELFORMAT_RGB888, sdl.TEXTUREACCESS_STREAMING,
-		int32(w), int32(h))
+		int32(width), int32(height))
 	if err != nil {
 		panic(err)
 	}
@@ -41,20 +52,31 @@ func main() {
 		panic(err)
 	}
 
-	bpp := pitch / w // bytes-per-pixel
-	for j := 0; j < h; j++ {
-		for i := 0; i < w; i++ {
-			ind := (j * pitch) + (i * bpp)
-			r := float64(i) / float64(w-1)
-			g := float64(j) / float64(h-1)
-			b := 0.25
+	// Camera
+	viewportHeight := 2.0
+	viewportWidth := aspect * viewportHeight
+	focalLength := 1.0
 
-			ir := uint8(255.99 * r)
-			ig := uint8(255.99 * g)
-			ib := uint8(255.99 * b)
-			pixels[ind] = ib   // B
-			pixels[ind+1] = ig // G
-			pixels[ind+2] = ir // R
+	origin := geom.NewVec3(0.0, 0.0, 0.0)
+	horizontal := geom.NewVec3(viewportWidth, 0, 0)
+	vertical := geom.NewVec3(0, viewportHeight, 0)
+	focalVec := geom.NewVec3(0, 0, focalLength)
+	lowerLeft := origin.Minus(horizontal.Scale(0.5)).Minus(vertical.Scale(0.5)).Minus(focalVec)
+
+	bpp := pitch / width // bytes-per-pixel
+	for j := height - 1; j >= 0; j-- {
+		for i := 0; i < width; i++ {
+			ind := (j * pitch) + (i * bpp)
+
+			u := float64(i) / float64(width-1)
+			v := float64(j) / float64(height-1)
+
+			r := geom.NewRay(
+				origin,
+				lowerLeft.Plus(horizontal.Scale(u)).Plus(vertical.Scale(v)).Minus(origin).Unit(),
+			)
+			pixelColor := color(r)
+			img.WriteColor(ind, pixels, pixelColor)
 		}
 	}
 
