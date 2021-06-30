@@ -17,7 +17,7 @@ func color(r geom.Ray) img.RGB {
 
 func main() {
 
-	const aspect float64 = 16 / 9
+	const aspect float64 = 16.0 / 9.0
 	const width int = 640
 	const height int = int(float64(width) / aspect)
 	fmt.Println(width, height)
