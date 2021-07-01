@@ -29,7 +29,9 @@ func (f Frame) WriteColor(index int, pixels []byte, c RGB) {
 	pixels[index+2] = r
 }
 
-// Render loops over the width and height and sets the pixels
+// Render loops over the width and height, and for each sample
+// taking the average of the samples and setting the R, G, B
+// values in a pixel byte array.
 func (f Frame) Render(pixels []byte, pitch int, h obj.Hitable, samples int) {
 	cam := Camera{}
 
@@ -50,6 +52,9 @@ func (f Frame) Render(pixels []byte, pitch int, h obj.Hitable, samples int) {
 	}
 }
 
+// Color checks if a ray intersects a list of objects,
+// returning their color. If there is no hit,
+// returns a background gradient
 func color(r geom.Ray, h obj.Hitable) RGB {
 	if t, _, n := h.Hit(r, 0, math.MaxFloat64); t > 0 {
 		return NewRGB(n.X()+1.0, n.Y()+1.0, n.Z()+1.0).Scale(0.5)

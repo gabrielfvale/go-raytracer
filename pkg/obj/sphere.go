@@ -12,10 +12,13 @@ type Sphere struct {
 	Radius float64
 }
 
+// NewSphere returns a Sphere given center and radius
 func NewSphere(center geom.Vec3, radius float64) Sphere {
 	return Sphere{Center: center, Radius: radius}
 }
 
+// Hit checks if a Ray hit the sphere, returning
+// t, p (point in ray) and n (surface normal)
 func (s Sphere) Hit(r geom.Ray, tMin, tMax float64) (t float64, p geom.Vec3, n geom.Vec3) {
 	oc := r.Orig.Minus(s.Center)
 	a := r.Dir.LenSq()
