@@ -30,19 +30,12 @@ func (c RGB) B() float64 {
 	return c.E[2]
 }
 
+// Plus returns the result of the sum of two RGBs
 func (c RGB) Plus(c2 RGB) RGB {
 	return RGB{Vec3: c.Vec3.Plus(c2.Vec3)}
 }
 
+// Scale returns an RGB scaled by a factor n
 func (c RGB) Scale(n float64) RGB {
 	return RGB{Vec3: c.Vec3.Scale(n)}
-}
-
-func WriteColor(index int, pixels []byte, c RGB) {
-	r := uint8(255.99 * c.R())
-	g := uint8(255.99 * c.G())
-	b := uint8(255.99 * c.B())
-	pixels[index] = b
-	pixels[index+1] = g
-	pixels[index+2] = r
 }

@@ -2,37 +2,10 @@ package main
 
 import (
 	"fmt"
-	"math"
 
-	"github.com/gabrielfvale/go-traytracer/pkg/geom"
 	"github.com/gabrielfvale/go-traytracer/pkg/img"
 	"github.com/veandco/go-sdl2/sdl"
 )
-
-func hitSphere(center geom.Vec3, radius float64, r geom.Ray) float64 {
-	oc := r.Orig.Minus(center)
-	a := r.Dir.Dot(r.Dir)
-	b := 2.0 * oc.Dot(r.Dir)
-	c := oc.Dot(oc) - radius*radius
-	discriminant := b*b - 4*a*c
-	if discriminant < 0.0 {
-		return -1.0
-	} else {
-		return (-b - math.Sqrt(discriminant)) / (2.0 * a)
-	}
-}
-
-func color(r geom.Ray) img.RGB {
-	st := hitSphere(geom.NewVec3(0.0, 0.0, -1.0), 0.5, r)
-	if st > 0 {
-		n := r.At(st).Minus(geom.NewVec3(0.0, 0.0, -1.0)).Unit()
-		return img.NewRGB(n.X()+1.0, n.Y()+1.0, n.Z()+1.0).Scale(0.5)
-	}
-	t := 0.5 * (r.Dir.Y() + 1.0)
-	c1 := img.NewRGB(1.0, 1.0, 1.0).Scale(1.0 - t)
-	c2 := img.NewRGB(0.5, 0.7, 1.0).Scale(t)
-	return c1.Plus(c2)
-}
 
 func main() {
 
@@ -40,6 +13,8 @@ func main() {
 	const width int = 640
 	const height int = int(float64(width) / aspect)
 	fmt.Println(width, height)
+
+	frame := img.NewFrame(width, height, aspect)
 
 	if err := sdl.Init(sdl.INIT_EVERYTHING); err != nil {
 		panic(err)
@@ -71,33 +46,7 @@ func main() {
 		panic(err)
 	}
 
-	// Camera
-	viewportHeight := 2.0
-	viewportWidth := aspect * viewportHeight
-	focalLength := 1.0
-
-	origin := geom.NewVec3(0.0, 0.0, 0.0)
-	horizontal := geom.NewVec3(viewportWidth, 0, 0)
-	vertical := geom.NewVec3(0, viewportHeight, 0)
-	focalVec := geom.NewVec3(0, 0, focalLength)
-	lowerLeft := origin.Minus(horizontal.Scale(0.5)).Minus(vertical.Scale(0.5)).Minus(focalVec)
-
-	bpp := pitch / width // bytes-per-pixel
-	for j := height - 1; j >= 0; j-- {
-		for i := 0; i < width; i++ {
-			ind := (j * pitch) + (i * bpp)
-
-			u := float64(i) / float64(width-1)
-			v := float64(j) / float64(height-1)
-
-			r := geom.NewRay(
-				origin,
-				lowerLeft.Plus(horizontal.Scale(u)).Plus(vertical.Scale(v)).Minus(origin).Unit(),
-			)
-			pixelColor := color(r)
-			img.WriteColor(ind, pixels, pixelColor)
-		}
-	}
+	frame.Render(pixels, pitch)
 
 	texture.Update(nil, pixels, pitch)
 	texture.Unlock()
