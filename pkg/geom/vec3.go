@@ -95,12 +95,13 @@ func (v Vec3) Unit() Vec3 {
 }
 
 func SampleSphere() Vec3 {
-	for {
-		v := NewVec3(rand.Float64(), rand.Float64(), rand.Float64()).Scale(2).Minus(NewVec3(1, 1, 1))
-		if v.LenSq() < 1 {
-			return v
-		}
-	}
+	u1 := rand.Float64()
+	u2 := rand.Float64()
+
+	x := math.Cos(2*math.Pi*u2) * 2 * math.Sqrt(u1*(1.0-u1))
+	y := math.Sin(2*math.Pi*u2) * 2 * math.Sqrt(u1*(1.0-u1))
+	z := 1.0 - 2.0*u1
+	return NewVec3(x, y, z)
 }
 
 // IStream streams in space-separated Vec3 values from a Reader
