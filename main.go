@@ -2,6 +2,8 @@ package main
 
 import (
 	"fmt"
+	"log"
+	"time"
 
 	"github.com/gabrielfvale/go-traytracer/pkg/geom"
 	"github.com/gabrielfvale/go-traytracer/pkg/img"
@@ -17,7 +19,7 @@ func main() {
 	fmt.Println(width, height)
 
 	frame := img.NewFrame(width, height, aspect)
-	surfaces := obj.NewList(
+	objects := obj.NewList(
 		obj.NewSphere(geom.NewVec3(0, 0, -1), 0.5),
 		obj.NewSphere(geom.NewVec3(0, -100.5, -1), 100),
 	)
@@ -54,7 +56,13 @@ func main() {
 		panic(err)
 	}
 
-	frame.Render(pixels, pitch, surfaces)
+	log.Printf("Started rendering")
+	start := time.Now()
+
+	frame.Render(pixels, pitch, objects, 8)
+
+	elapsed := time.Since(start)
+	log.Printf("Rendering took %s", elapsed)
 
 	texture.Update(nil, pixels, pitch)
 	texture.Unlock()
