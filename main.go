@@ -2,13 +2,32 @@ package main
 
 import (
 	"fmt"
+	"math"
 
 	"github.com/gabrielfvale/go-traytracer/pkg/geom"
 	"github.com/gabrielfvale/go-traytracer/pkg/img"
 	"github.com/veandco/go-sdl2/sdl"
 )
 
+func hitSphere(center geom.Vec3, radius float64, r geom.Ray) float64 {
+	oc := r.Orig.Minus(center)
+	a := r.Dir.Dot(r.Dir)
+	b := 2.0 * oc.Dot(r.Dir)
+	c := oc.Dot(oc) - radius*radius
+	discriminant := b*b - 4*a*c
+	if discriminant < 0.0 {
+		return -1.0
+	} else {
+		return (-b - math.Sqrt(discriminant)) / (2.0 * a)
+	}
+}
+
 func color(r geom.Ray) img.RGB {
+	st := hitSphere(geom.NewVec3(0.0, 0.0, -1.0), 0.5, r)
+	if st > 0 {
+		n := r.At(st).Minus(geom.NewVec3(0.0, 0.0, -1.0)).Unit()
+		return img.NewRGB(n.X()+1.0, n.Y()+1.0, n.Z()+1.0).Scale(0.5)
+	}
 	t := 0.5 * (r.Dir.Y() + 1.0)
 	c1 := img.NewRGB(1.0, 1.0, 1.0).Scale(1.0 - t)
 	c2 := img.NewRGB(0.5, 0.7, 1.0).Scale(t)
