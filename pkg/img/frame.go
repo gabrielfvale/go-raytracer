@@ -44,6 +44,7 @@ func (f Frame) Render(pixels []byte, pitch int, s obj.Surface) {
 	bpp := pitch / f.W // bytes-per-pixel
 	for j := f.H - 1; j >= 0; j-- {
 		for i := 0; i < f.W; i++ {
+			// nj := -j + f.H
 			ind := (j * pitch) + (i * bpp)
 
 			u := float64(i) / float64(f.W-1)

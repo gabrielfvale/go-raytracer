@@ -60,7 +60,7 @@ func main() {
 	texture.Unlock()
 
 	renderer.Clear()
-	renderer.Copy(texture, nil, nil)
+	renderer.CopyEx(texture, nil, nil, 0, nil, sdl.FLIP_VERTICAL)
 	renderer.Present()
 
 	running := true
