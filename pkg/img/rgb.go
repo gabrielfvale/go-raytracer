@@ -1,6 +1,10 @@
 package img
 
-import "github.com/gabrielfvale/go-traytracer/pkg/geom"
+import (
+	"math"
+
+	"github.com/gabrielfvale/go-traytracer/pkg/geom"
+)
 
 // Type definition for RGB
 type RGB struct {
@@ -38,4 +42,14 @@ func (c RGB) Plus(c2 RGB) RGB {
 // Scale returns an RGB scaled by a factor n
 func (c RGB) Scale(n float64) RGB {
 	return RGB{Vec3: c.Vec3.Scale(n)}
+}
+
+// Gamma raises each of R, G, and B to 1/n
+func (c RGB) Gamma(n float64) RGB {
+	ni := 1 / n
+	return NewRGB(
+		math.Pow(c.R(), ni),
+		math.Pow(c.G(), ni),
+		math.Pow(c.B(), ni),
+	)
 }

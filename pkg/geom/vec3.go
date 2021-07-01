@@ -101,7 +101,7 @@ func SampleSphere() Vec3 {
 	x := math.Cos(2*math.Pi*u2) * 2 * math.Sqrt(u1*(1.0-u1))
 	y := math.Sin(2*math.Pi*u2) * 2 * math.Sqrt(u1*(1.0-u1))
 	z := 1.0 - 2.0*u1
-	return NewVec3(x, y, z)
+	return NewVec3(x, y, z).Unit()
 }
 
 // IStream streams in space-separated Vec3 values from a Reader

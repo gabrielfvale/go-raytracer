@@ -8,6 +8,8 @@ import (
 	"github.com/gabrielfvale/go-traytracer/pkg/obj"
 )
 
+const bias = 0.001
+
 // Type definition for Frame
 type Frame struct {
 	W, H int
@@ -46,7 +48,7 @@ func (f Frame) Render(pixels []byte, pitch int, h obj.Hitable, samples int) {
 				r := cam.Ray(u, v)
 				c = c.Plus(color(r, h, 50))
 			}
-			c = c.Scale(1 / float64(samples))
+			c = c.Scale(1 / float64(samples)).Gamma(2)
 			f.WriteColor(ind, pixels, c)
 		}
 	}
@@ -59,7 +61,7 @@ func color(r geom.Ray, h obj.Hitable, depth int) RGB {
 	if depth <= 0 {
 		return NewRGB(0.0, 0.0, 0.0)
 	}
-	if t, p, n := h.Hit(r, 0, math.MaxFloat64); t > 0 {
+	if t, p, n := h.Hit(r, bias, math.MaxFloat64); t > 0 {
 		target := p.Plus(n).Plus(geom.SampleSphere())
 		r2 := geom.NewRay(p, target.Minus(p).Unit())
 		return color(r2, h, depth-1).Scale(0.5)
