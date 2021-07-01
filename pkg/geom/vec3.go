@@ -94,6 +94,7 @@ func (v Vec3) Unit() Vec3 {
 	return v.Scale(k)
 }
 
+// SampleSphere returns a random unit vector in a sphere
 func SampleSphere() Vec3 {
 	u1 := rand.Float64()
 	u2 := rand.Float64()
@@ -101,6 +102,36 @@ func SampleSphere() Vec3 {
 	x := math.Cos(2*math.Pi*u2) * 2 * math.Sqrt(u1*(1.0-u1))
 	y := math.Sin(2*math.Pi*u2) * 2 * math.Sqrt(u1*(1.0-u1))
 	z := 1.0 - 2.0*u1
+	return NewVec3(x, y, z).Unit()
+}
+
+// SampleHemisphere returns a random unit vector in a hemisphere
+func SampleHemisphere() Vec3 {
+	u1 := rand.Float64()
+	u2 := rand.Float64()
+
+	x := math.Cos(2*math.Pi*u2) * 2 * math.Sqrt(1.0-u1*u1)
+	y := math.Sin(2*math.Pi*u2) * 2 * math.Sqrt(1.0-u1*u1)
+	z := u1
+	return NewVec3(x, y, z).Unit()
+}
+
+// SampleHemisphereCos returns a random unit vector (weighted) in a hemisphere
+func SampleHemisphereCos() Vec3 {
+	u1 := rand.Float64()
+	u2 := rand.Float64()
+
+	th := 2 * math.Pi * u2
+	r := math.Sqrt(u1)
+
+	x := math.Cos(th) * r
+	y := math.Sin(th) * r
+	z := 1.0 - x*x - y*y
+	if z <= 0.0 {
+		z = 0.0
+	} else {
+		z = math.Sqrt(z)
+	}
 	return NewVec3(x, y, z).Unit()
 }
 

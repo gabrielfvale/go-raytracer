@@ -59,7 +59,7 @@ func main() {
 	log.Printf("Started rendering")
 	start := time.Now()
 
-	frame.Render(pixels, pitch, objects, 100)
+	frame.Render(pixels, pitch, objects, 8)
 
 	elapsed := time.Since(start)
 	log.Printf("Rendering took %s", elapsed)

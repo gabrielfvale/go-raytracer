@@ -62,7 +62,7 @@ func color(r geom.Ray, h obj.Hitable, depth int) RGB {
 		return NewRGB(0.0, 0.0, 0.0)
 	}
 	if t, p, n := h.Hit(r, bias, math.MaxFloat64); t > 0 {
-		target := p.Plus(n).Plus(geom.SampleSphere())
+		target := p.Plus(n).Plus(geom.SampleHemisphereCos())
 		r2 := geom.NewRay(p, target.Minus(p).Unit())
 		return color(r2, h, depth-1).Scale(0.5)
 	}
