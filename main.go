@@ -3,7 +3,9 @@ package main
 import (
 	"fmt"
 
+	"github.com/gabrielfvale/go-traytracer/pkg/geom"
 	"github.com/gabrielfvale/go-traytracer/pkg/img"
+	"github.com/gabrielfvale/go-traytracer/pkg/obj"
 	"github.com/veandco/go-sdl2/sdl"
 )
 
@@ -15,7 +17,12 @@ func main() {
 	fmt.Println(width, height)
 
 	frame := img.NewFrame(width, height, aspect)
+	surfaces := obj.NewList(
+		obj.NewSphere(geom.NewVec3(0, 0, -1), 0.5),
+		obj.NewSphere(geom.NewVec3(0, -100.5, -1), 100),
+	)
 
+	/* Begin SDL startup */
 	if err := sdl.Init(sdl.INIT_EVERYTHING); err != nil {
 		panic(err)
 	}
@@ -40,13 +47,14 @@ func main() {
 		panic(err)
 	}
 	defer texture.Destroy()
+	/* End SDL startup */
 
 	pixels, pitch, err := texture.Lock(nil)
 	if err != nil {
 		panic(err)
 	}
 
-	frame.Render(pixels, pitch)
+	frame.Render(pixels, pitch, surfaces)
 
 	texture.Update(nil, pixels, pitch)
 	texture.Unlock()

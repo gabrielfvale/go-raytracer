@@ -4,6 +4,7 @@ import (
 	"math"
 
 	"github.com/gabrielfvale/go-traytracer/pkg/geom"
+	"github.com/gabrielfvale/go-traytracer/pkg/obj"
 )
 
 // Type definition for Frame
@@ -28,7 +29,7 @@ func (f Frame) WriteColor(index int, pixels []byte, c RGB) {
 }
 
 // Render loops over the width and height and sets the pixels
-func (f Frame) Render(pixels []byte, pitch int) {
+func (f Frame) Render(pixels []byte, pitch int, s obj.Surface) {
 	// Camera
 	viewportHeight := 2.0
 	viewportWidth := f.AR * viewportHeight
@@ -52,29 +53,14 @@ func (f Frame) Render(pixels []byte, pitch int) {
 				origin,
 				lowerLeft.Plus(horizontal.Scale(u)).Plus(vertical.Scale(v)).Minus(origin).Unit(),
 			)
-			pixelColor := color(r)
+			pixelColor := color(r, s)
 			f.WriteColor(ind, pixels, pixelColor)
 		}
 	}
 }
 
-func hitSphere(center geom.Vec3, radius float64, r geom.Ray) (t float64, hit bool) {
-	oc := r.Orig.Minus(center)
-	a := r.Dir.LenSq()
-	halfB := oc.Dot(r.Dir)
-	c := oc.LenSq() - radius*radius
-	discriminant := halfB*halfB - a*c
-
-	if discriminant < 0.0 {
-		return -1.0, false
-	} else {
-		return (-halfB - math.Sqrt(discriminant)) / a, true
-	}
-}
-
-func color(r geom.Ray) RGB {
-	if st, hit := hitSphere(geom.NewVec3(0.0, 0.0, -1.0), 0.5, r); hit {
-		n := r.At(st).Minus(geom.NewVec3(0.0, 0.0, -1.0)).Unit()
+func color(r geom.Ray, s obj.Surface) RGB {
+	if t, _, n := s.Hit(r, 0, math.MaxFloat64); t > 0 {
 		return NewRGB(n.X()+1.0, n.Y()+1.0, n.Z()+1.0).Scale(0.5)
 	}
 	t := 0.5 * (r.Dir.Y() + 1.0)
