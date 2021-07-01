@@ -44,7 +44,7 @@ func (f Frame) Render(pixels []byte, pitch int, h obj.Hitable, samples int) {
 				u := (float64(i) + rand.Float64()) / float64(f.W-1)
 				v := (float64(j) + rand.Float64()) / float64(f.H-1)
 				r := cam.Ray(u, v)
-				c = c.Plus(color(r, h))
+				c = c.Plus(color(r, h, 50))
 			}
 			c = c.Scale(1 / float64(samples))
 			f.WriteColor(ind, pixels, c)
@@ -55,9 +55,14 @@ func (f Frame) Render(pixels []byte, pitch int, h obj.Hitable, samples int) {
 // Color checks if a ray intersects a list of objects,
 // returning their color. If there is no hit,
 // returns a background gradient
-func color(r geom.Ray, h obj.Hitable) RGB {
-	if t, _, n := h.Hit(r, 0, math.MaxFloat64); t > 0 {
-		return NewRGB(n.X()+1.0, n.Y()+1.0, n.Z()+1.0).Scale(0.5)
+func color(r geom.Ray, h obj.Hitable, depth int) RGB {
+	if depth <= 0 {
+		return NewRGB(0.0, 0.0, 0.0)
+	}
+	if t, p, n := h.Hit(r, 0, math.MaxFloat64); t > 0 {
+		target := p.Plus(n).Plus(geom.SampleSphere())
+		r2 := geom.NewRay(p, target.Minus(p).Unit())
+		return color(r2, h, depth-1).Scale(0.5)
 	}
 	t := 0.5 * (r.Dir.Y() + 1.0)
 	c1 := NewRGB(1.0, 1.0, 1.0).Scale(1.0 - t)

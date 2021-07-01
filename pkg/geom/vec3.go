@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"math/rand"
 )
 
 // Type definition for Vec3
@@ -91,6 +92,15 @@ func (v Vec3) Cross(v2 Vec3) Vec3 {
 func (v Vec3) Unit() Vec3 {
 	k := 1.0 / v.Len()
 	return v.Scale(k)
+}
+
+func SampleSphere() Vec3 {
+	for {
+		v := NewVec3(rand.Float64(), rand.Float64(), rand.Float64()).Scale(2).Minus(NewVec3(1, 1, 1))
+		if v.LenSq() < 1 {
+			return v
+		}
+	}
 }
 
 // IStream streams in space-separated Vec3 values from a Reader
