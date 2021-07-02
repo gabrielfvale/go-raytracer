@@ -6,8 +6,8 @@ import (
 	"time"
 
 	"github.com/gabrielfvale/go-raytracer/pkg/geom"
-	"github.com/gabrielfvale/go-raytracer/pkg/img"
 	"github.com/gabrielfvale/go-raytracer/pkg/obj"
+	"github.com/gabrielfvale/go-raytracer/pkg/tracer"
 	"github.com/veandco/go-sdl2/sdl"
 )
 
@@ -19,7 +19,7 @@ func main() {
 	const samples int = 100
 	fmt.Println(width, height)
 
-	frame := img.NewFrame(width, height, aspect)
+	frame := tracer.NewFrame(width, height, aspect)
 	objects := obj.NewList(
 		obj.NewSphere(geom.NewVec3(0, 0, -1), 0.5),
 		obj.NewSphere(geom.NewVec3(0, -100.5, -1), 100),

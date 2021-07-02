@@ -1,4 +1,4 @@
-package img
+package tracer
 
 import "github.com/gabrielfvale/go-raytracer/pkg/geom"
 
