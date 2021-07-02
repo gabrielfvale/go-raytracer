@@ -1,6 +1,6 @@
 package img
 
-import "github.com/gabrielfvale/go-traytracer/pkg/geom"
+import "github.com/gabrielfvale/go-raytracer/pkg/geom"
 
 // Constant camera variables
 const (

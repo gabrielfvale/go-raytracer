@@ -1,4 +1,4 @@
-module github.com/gabrielfvale/go-traytracer
+module github.com/gabrielfvale/go-raytracer
 
 go 1.15
 

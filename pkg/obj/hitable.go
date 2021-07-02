@@ -1,6 +1,6 @@
 package obj
 
-import "github.com/gabrielfvale/go-traytracer/pkg/geom"
+import "github.com/gabrielfvale/go-raytracer/pkg/geom"
 
 // Hitable represents an object that can be hit by a Ray
 type Hitable interface {

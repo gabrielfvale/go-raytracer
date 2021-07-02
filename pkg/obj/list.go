@@ -1,6 +1,6 @@
 package obj
 
-import "github.com/gabrielfvale/go-traytracer/pkg/geom"
+import "github.com/gabrielfvale/go-raytracer/pkg/geom"
 
 // Type definition for List
 type List struct {

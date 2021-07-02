@@ -3,7 +3,7 @@ package obj
 import (
 	"math"
 
-	"github.com/gabrielfvale/go-traytracer/pkg/geom"
+	"github.com/gabrielfvale/go-raytracer/pkg/geom"
 )
 
 // Type definition for Sphere

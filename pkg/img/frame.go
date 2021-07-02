@@ -4,8 +4,8 @@ import (
 	"math"
 	"math/rand"
 
-	"github.com/gabrielfvale/go-traytracer/pkg/geom"
-	"github.com/gabrielfvale/go-traytracer/pkg/obj"
+	"github.com/gabrielfvale/go-raytracer/pkg/geom"
+	"github.com/gabrielfvale/go-raytracer/pkg/obj"
 )
 
 const bias = 0.001

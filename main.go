@@ -5,9 +5,9 @@ import (
 	"log"
 	"time"
 
-	"github.com/gabrielfvale/go-traytracer/pkg/geom"
-	"github.com/gabrielfvale/go-traytracer/pkg/img"
-	"github.com/gabrielfvale/go-traytracer/pkg/obj"
+	"github.com/gabrielfvale/go-raytracer/pkg/geom"
+	"github.com/gabrielfvale/go-raytracer/pkg/img"
+	"github.com/gabrielfvale/go-raytracer/pkg/obj"
 	"github.com/veandco/go-sdl2/sdl"
 )
 

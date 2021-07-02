@@ -1,2 +1,2 @@
-# go-traytracer
-Writing a raytracer to learn Rust
+# go-raytracer
+Writing a raytracer to learn GO
