@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/gabrielfvale/go-raytracer/pkg/geom"
-	"github.com/gabrielfvale/go-raytracer/pkg/obj"
 	"github.com/gabrielfvale/go-raytracer/pkg/tracer"
 	"github.com/veandco/go-sdl2/sdl"
 )
@@ -20,9 +19,17 @@ func main() {
 	fmt.Println(width, height)
 
 	frame := tracer.NewFrame(width, height, aspect)
-	objects := obj.NewList(
-		obj.NewSphere(geom.NewVec3(0, 0, -1), 0.5),
-		obj.NewSphere(geom.NewVec3(0, -100.5, -1), 100),
+
+	matGround := tracer.Lambertian{Albedo: tracer.NewColor(0.8, 0.8, 0.0)}
+	matCenter := tracer.Lambertian{Albedo: tracer.NewColor(0.7, 0.3, 0.3)}
+	matLeft := tracer.Metal{Albedo: tracer.NewColor(0.8, 0.8, 0.8)}
+	matRight := tracer.Metal{Albedo: tracer.NewColor(0.8, 0.6, 0.2)}
+
+	objects := tracer.NewList(
+		tracer.NewSphere(geom.NewVec3(0.0, -100.5, -1.0), 100, matGround),
+		tracer.NewSphere(geom.NewVec3(0.0, 0.0, -1.0), 0.5, matCenter),
+		tracer.NewSphere(geom.NewVec3(-1.0, 0.0, -1.0), 0.5, matLeft),
+		tracer.NewSphere(geom.NewVec3(1.0, 0.0, -1.0), 0.5, matRight),
 	)
 
 	/* Begin SDL startup */

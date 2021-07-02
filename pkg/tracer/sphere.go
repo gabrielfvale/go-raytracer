@@ -1,4 +1,4 @@
-package obj
+package tracer
 
 import (
 	"math"
@@ -10,16 +10,17 @@ import (
 type Sphere struct {
 	Center geom.Vec3
 	Radius float64
+	Mat    Material
 }
 
 // NewSphere returns a Sphere given center and radius
-func NewSphere(center geom.Vec3, radius float64) Sphere {
-	return Sphere{Center: center, Radius: radius}
+func NewSphere(center geom.Vec3, radius float64, mat Material) Sphere {
+	return Sphere{Center: center, Radius: radius, Mat: mat}
 }
 
 // Hit checks if a Ray hit the sphere, returning
 // t, p (point in ray) and n (surface normal)
-func (s Sphere) Hit(r geom.Ray, tMin, tMax float64) (t float64, p geom.Vec3, n geom.Vec3) {
+func (s Sphere) Hit(r geom.Ray, tMin, tMax float64) (t float64, surf Surface) {
 	oc := r.Orig.Minus(s.Center)
 	a := r.Dir.LenSq()
 	halfB := oc.Dot(r.Dir)
@@ -27,21 +28,23 @@ func (s Sphere) Hit(r geom.Ray, tMin, tMax float64) (t float64, p geom.Vec3, n g
 	disc := halfB*halfB - a*c
 
 	if disc < 0.0 {
-		return -1.0, p, n
+		return -1.0, s
 	}
 
 	sqrtd := math.Sqrt(disc)
 	// Test both roots
 	t = (-halfB - sqrtd) / a
 	if t > tMin && t < tMax {
-		p = r.At(t)
-		return t, p, p.Minus(s.Center).Unit()
+		return t, s
 	}
 	t = (-halfB + sqrtd) / a
 	if t > tMin && t < tMax {
-		p = r.At(t)
-		return t, p, p.Minus(s.Center).Unit()
+		return t, s
 	}
 
-	return -1.0, p, n
+	return -1.0, s
+}
+
+func (s Sphere) Surface(p geom.Vec3) (n geom.Vec3, m Material) {
+	return p.Minus(s.Center).Unit(), s.Mat
 }

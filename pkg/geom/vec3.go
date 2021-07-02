@@ -94,6 +94,17 @@ func (v Vec3) Unit() Vec3 {
 	return v.Scale(k)
 }
 
+// NearZero returns if a Vec3 is close to 0
+func (v Vec3) NearZero() bool {
+	s := 1e-8
+	return math.Abs(v.X()) < s && math.Abs(v.Y()) < s && math.Abs(v.Z()) < s
+}
+
+// Reflect returns a reflected Vec3 in relation to a normal n
+func (v Vec3) Reflect(n Vec3) Vec3 {
+	return v.Minus(n.Scale(2 * v.Dot(n)))
+}
+
 // SampleSphere returns a random unit vector in a sphere
 func SampleSphere() Vec3 {
 	u1 := rand.Float64()

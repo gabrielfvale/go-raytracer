@@ -5,7 +5,6 @@ import (
 	"math/rand"
 
 	"github.com/gabrielfvale/go-raytracer/pkg/geom"
-	"github.com/gabrielfvale/go-raytracer/pkg/obj"
 )
 
 const bias = 0.001
@@ -34,7 +33,7 @@ func (f Frame) WriteColor(index int, pixels []byte, c Color) {
 // Render loops over the width and height, and for each sample
 // taking the average of the samples and setting the R, G, B
 // values in a pixel byte array.
-func (f Frame) Render(pixels []byte, pitch int, h obj.Hitable, samples int) {
+func (f Frame) Render(pixels []byte, pitch int, h Hitable, samples int) {
 	cam := Camera{}
 
 	bpp := pitch / f.W // bytes-per-pixel
@@ -57,14 +56,16 @@ func (f Frame) Render(pixels []byte, pitch int, h obj.Hitable, samples int) {
 // Color checks if a ray intersects a list of objects,
 // returning their color. If there is no hit,
 // returns a background gradient
-func color(r geom.Ray, h obj.Hitable, depth int) Color {
+func color(r geom.Ray, h Hitable, depth int) Color {
 	if depth <= 0 {
 		return NewColor(0.0, 0.0, 0.0)
 	}
-	if t, p, n := h.Hit(r, bias, math.MaxFloat64); t > 0 {
-		target := p.Plus(n).Plus(geom.SampleHemisphereCos())
-		r2 := geom.NewRay(p, target.Minus(p).Unit())
-		return color(r2, h, depth-1).Scale(0.5)
+	if t, s := h.Hit(r, bias, math.MaxFloat64); t > 0 {
+		p := r.At(t)
+		n, m := s.Surface(p)
+		if scattered, outRay, attenuation := m.Scatter(r, p, n); scattered {
+			return color(outRay, h, depth-1).Times(attenuation)
+		}
 	}
 	t := 0.5 * (r.Dir.Y() + 1.0)
 	c1 := NewColor(1.0, 1.0, 1.0).Scale(1.0 - t)
