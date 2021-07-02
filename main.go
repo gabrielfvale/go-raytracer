@@ -16,6 +16,7 @@ func main() {
 	const aspect float64 = 16.0 / 9.0
 	const width int = 640
 	const height int = int(float64(width) / aspect)
+	const samples int = 100
 	fmt.Println(width, height)
 
 	frame := img.NewFrame(width, height, aspect)
