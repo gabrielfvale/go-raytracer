@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"log"
 	"time"
@@ -15,15 +16,17 @@ func main() {
 	const aspect float64 = 16.0 / 9.0
 	const width int = 640
 	const height int = int(float64(width) / aspect)
-	const samples int = 100
+	var samples int
 	fmt.Println(width, height)
+	flag.IntVar(&samples, "s", 8, "")
+	flag.Parse()
 
 	frame := tracer.NewFrame(width, height, aspect)
 
-	matGround := tracer.Lambertian{Albedo: tracer.NewColor(0.8, 0.8, 0.0)}
-	matCenter := tracer.Lambertian{Albedo: tracer.NewColor(0.7, 0.3, 0.3)}
-	matLeft := tracer.Metal{Albedo: tracer.NewColor(0.8, 0.8, 0.8)}
-	matRight := tracer.Metal{Albedo: tracer.NewColor(0.8, 0.6, 0.2)}
+	matGround := tracer.NewLambert(tracer.NewColor(0.8, 0.8, 0.0))
+	matCenter := tracer.NewLambert(tracer.NewColor(0.7, 0.3, 0.3))
+	matLeft := tracer.NewMetal(tracer.NewColor(0.8, 0.8, 0.8), 0.3)
+	matRight := tracer.NewMetal(tracer.NewColor(0.8, 0.6, 0.2), 1.0)
 
 	objects := tracer.NewList(
 		tracer.NewSphere(geom.NewVec3(0.0, -100.5, -1.0), 100, matGround),
@@ -64,10 +67,10 @@ func main() {
 		panic(err)
 	}
 
-	log.Printf("Started rendering")
+	log.Printf("Started rendering (%d samples)", samples)
 	start := time.Now()
 
-	frame.Render(pixels, pitch, objects, 8)
+	frame.Render(pixels, pitch, objects, samples)
 
 	elapsed := time.Since(start)
 	log.Printf("Rendering took %s", elapsed)

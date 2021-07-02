@@ -66,6 +66,7 @@ func color(r geom.Ray, h Hitable, depth int) Color {
 		if scattered, outRay, attenuation := m.Scatter(r, p, n); scattered {
 			return color(outRay, h, depth-1).Times(attenuation)
 		}
+		return NewColor(0.0, 0.0, 0.0)
 	}
 	t := 0.5 * (r.Dir.Y() + 1.0)
 	c1 := NewColor(1.0, 1.0, 1.0).Scale(1.0 - t)
