@@ -65,11 +65,36 @@ func color(r geom.Ray, h Hitable, depth int) Color {
 		return NewColor(0.0, 0.0, 0.0)
 	}
 	if t, s := h.Hit(r, bias, math.MaxFloat64); t > 0 {
+		incident := r.Dir.Unit()
 		p := r.At(t)
 		n, m := s.Surface(p)
-		if scattered, outVec, attenuation := m.Scatter(r.Dir.Unit(), n); scattered {
-			r2 := geom.NewRay(p, outVec)
-			return color(r2, h, depth-1).Times(attenuation)
+		if m.Lambert { // Lambertian material
+			scattered := n.Unit().Plus(geom.SampleHemisphereCos())
+			if scattered.NearZero() {
+				scattered = n
+			}
+			r2 := geom.NewRay(p, scattered)
+			return color(r2, h, depth-1).Times(m.Color)
+		}
+		if m.Reflectivity > 0 { // Metalic material
+			reflected := incident.Reflect(n)
+			// Add roughness/fuzzyness
+			reflected = reflected.Plus(geom.SampleHemisphereCos().Scale(m.Roughness))
+			if reflected.Dot(n) > 0 {
+				r2 := geom.NewRay(p, reflected)
+				return color(r2, h, depth-1).Times(m.Color).Scale(m.Reflectivity)
+			}
+		}
+		if m.Transparent { // Dielectric material
+			etai, etat := 1.0, m.RefrIndex
+			refrRatio := etai / etat
+
+			refracts, rayDir := incident.Refract(n, refrRatio)
+			if !refracts {
+				rayDir = incident.Reflect(n)
+			}
+			r2 := geom.NewRay(p, rayDir)
+			return color(r2, h, depth-1)
 		}
 		return NewColor(0.0, 0.0, 0.0)
 	}

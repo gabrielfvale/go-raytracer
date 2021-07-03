@@ -27,10 +27,10 @@ func main() {
 
 	frame := tracer.NewFrame(width, height, aspect)
 
-	matGround := tracer.NewLambert(tracer.NewColor(0.8, 0.8, 0.0))
-	matCenter := tracer.NewLambert(tracer.NewColor(0.1, 0.2, 0.5))
-	matLeft := tracer.NewDielectric(1.5)
-	matRight := tracer.NewMetal(tracer.NewColor(0.8, 0.6, 0.2), 0.0)
+	matGround := tracer.LambertMaterial(tracer.NewColor(0.8, 0.8, 0.0))
+	matCenter := tracer.LambertMaterial(tracer.NewColor(0.1, 0.2, 0.5))
+	matLeft := tracer.DielectricMaterial(1.5)
+	matRight := tracer.MetalicMaterial(tracer.NewColor(0.8, 0.6, 0.2), 1, 0.3)
 
 	objects := tracer.NewList(
 		tracer.NewSphere(geom.NewVec3(0.0, -100.5, -1.0), 100, matGround),
