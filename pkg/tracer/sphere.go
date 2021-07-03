@@ -46,5 +46,5 @@ func (s Sphere) Hit(r geom.Ray, tMin, tMax float64) (t float64, surf Surface) {
 }
 
 func (s Sphere) Surface(p geom.Vec3) (n geom.Vec3, m Material) {
-	return p.Minus(s.Center).Unit(), s.Mat
+	return p.Minus(s.Center).Scale(s.Radius).Unit(), s.Mat
 }

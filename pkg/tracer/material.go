@@ -68,22 +68,15 @@ func NewDielectric(index float64) Dielectric {
 func (m Dielectric) Scatter(in geom.Ray, p geom.Vec3, n geom.Vec3) (scattered bool, out geom.Ray, attenuation Color) {
 	attenuation = NewColor(1.0, 1.0, 1.0)
 	etai, etat := 1.0, m.RefrIndex
-	refrNormal := n
-
-	if in.Dir.Dot(n) >= 0 { // ray inside
-		refrNormal = n.Inv()
-		etai, etat = etat, etai // swap indexes
-	}
 	refrRatio := etai / etat
 	rayDir := geom.NewVec3(0.0, 0.0, 0.0)
 
-	if refracts, refracted := in.Dir.Refract(refrNormal, refrRatio); refracts {
+	if refracts, refracted := in.Dir.Refract(n, refrRatio); refracts {
 		rayDir = refracted
 	} else {
 		rayDir = in.Dir.Reflect(n)
 	}
 
-	// refracted := in.Dir.Refract(refrNormal, refrRatio)
 	out = geom.NewRay(p, rayDir)
 	return true, out, attenuation
 }
