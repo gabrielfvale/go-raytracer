@@ -1,6 +1,10 @@
 package tracer
 
-import "github.com/gabrielfvale/go-raytracer/pkg/geom"
+import (
+	"math"
+
+	"github.com/gabrielfvale/go-raytracer/pkg/geom"
+)
 
 // Material represents a material that produces a scattered ray
 type Material interface {
@@ -66,13 +70,27 @@ func NewDielectric(index float64) Dielectric {
 func (m Dielectric) Scatter(in geom.Ray, p geom.Vec3, n geom.Vec3) (scattered bool, out geom.Ray, attenuation Color) {
 	attenuation = NewColor(1.0, 1.0, 1.0)
 	etai, etat := 1.0, m.RefrIndex
-	outNormal := n
+	refrNormal := n
+
 	if in.Dir.Dot(n) >= 0 { // ray inside
-		outNormal = n.Inv()
+		refrNormal = n.Inv()
 		etai, etat = etat, etai // swap indexes
 	}
 	refrRatio := etai / etat
-	refracted := in.Dir.Refract(outNormal, refrRatio)
-	out = geom.NewRay(p, refracted)
+	rayDir := geom.NewVec3(0.0, 0.0, 0.0)
+
+	// Check for total internal reflection
+	cost := math.Min(in.Dir.Inv().Dot(n), 1.0)
+	sint := math.Sqrt(1.0 - cost*cost)
+
+	totalIntRefl := refrRatio*sint > 1.0
+
+	if totalIntRefl {
+		rayDir = in.Dir.Reflect(n)
+	} else {
+		rayDir = in.Dir.Refract(refrNormal, refrRatio)
+	}
+	// refracted := in.Dir.Refract(refrNormal, refrRatio)
+	out = geom.NewRay(p, rayDir)
 	return true, out, attenuation
 }
