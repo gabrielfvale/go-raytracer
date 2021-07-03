@@ -34,7 +34,7 @@ func (f Frame) WriteColor(index int, pixels []byte, c Color) {
 // taking the average of the samples and setting the R, G, B
 // values in a pixel byte array.
 func (f Frame) Render(pixels []byte, pitch int, h Hitable, samples int) {
-	cam := Camera{}
+	cam := NewCamera(geom.NewVec3(-2, 2, 1), geom.NewVec3(0, 0, -1), geom.NewVec3(0, 1, 0), 90, f.AR)
 
 	bpp := pitch / f.W // bytes-per-pixel
 	for j := f.H - 1; j >= 0; j-- {
