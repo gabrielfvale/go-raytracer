@@ -25,20 +25,20 @@ func main() {
 
 	fmt.Println(width, height)
 
-	frame := tracer.NewFrame(width, height, aspect)
-
 	matGround := tracer.LambertMaterial(tracer.NewColor(0.8, 0.8, 0.0))
 	matCenter := tracer.LambertMaterial(tracer.NewColor(0.1, 0.2, 0.5))
 	matLeft := tracer.DielectricMaterial(1.5)
 	matRight := tracer.MetalicMaterial(tracer.NewColor(0.8, 0.6, 0.2), 1, 0.3)
 
-	objects := tracer.NewList(
+	objects := []tracer.Hitable{
 		tracer.NewSphere(geom.NewVec3(0.0, -100.5, -1.0), 100, matGround),
 		tracer.NewSphere(geom.NewVec3(0.0, 0.0, -1.0), 0.5, matCenter),
 		tracer.NewSphere(geom.NewVec3(-1.0, 0.0, -1.0), 0.5, matLeft),
 		tracer.NewSphere(geom.NewVec3(-1.0, 0.0, -1.0), -0.45, matLeft),
 		tracer.NewSphere(geom.NewVec3(1.0, 0.0, -1.0), 0.5, matRight),
-	)
+	}
+
+	frame := tracer.NewFrame(width, height, aspect, objects)
 
 	/* Begin SDL startup */
 	if err := sdl.Init(sdl.INIT_EVERYTHING); err != nil {
@@ -75,7 +75,7 @@ func main() {
 	log.Printf("Started rendering (%d samples)", samples)
 	start := time.Now()
 
-	frame.Render(pixels, pitch, objects, samples)
+	frame.Render(pixels, pitch, samples)
 
 	elapsed := time.Since(start)
 	log.Printf("Rendering took %s", elapsed)

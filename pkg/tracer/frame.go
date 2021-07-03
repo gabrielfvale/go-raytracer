@@ -11,13 +11,14 @@ const bias = 0.001
 
 // Type definition for Frame
 type Frame struct {
-	W, H int
-	AR   float64
+	W, H    int
+	AR      float64
+	Objects []Hitable
 }
 
 // NewFrame returns a Frame, given width, height and aspect ratio
-func NewFrame(width, height int, aspect float64) Frame {
-	return Frame{W: width, H: height, AR: aspect}
+func NewFrame(width, height int, aspect float64, objects []Hitable) Frame {
+	return Frame{W: width, H: height, AR: aspect, Objects: objects}
 }
 
 // WriteColor writes a Color to a pixel byte array
@@ -33,7 +34,7 @@ func (f Frame) WriteColor(index int, pixels []byte, c Color) {
 // Render loops over the width and height, and for each sample
 // taking the average of the samples and setting the R, G, B
 // values in a pixel byte array.
-func (f Frame) Render(pixels []byte, pitch int, h Hitable, samples int) {
+func (f Frame) Render(pixels []byte, pitch int, samples int) {
 	cam := NewCamera(
 		geom.NewVec3(0, 0, 1),
 		geom.NewVec3(0, 0, -1),
@@ -49,7 +50,7 @@ func (f Frame) Render(pixels []byte, pitch int, h Hitable, samples int) {
 				u := (float64(i) + rand.Float64()) / float64(f.W-1)
 				v := (float64(j) + rand.Float64()) / float64(f.H-1)
 				r := cam.Ray(u, v)
-				c = c.Plus(color(r, h, 50))
+				c = c.Plus(color(r, f.Objects, 50))
 			}
 			c = c.Scale(1 / float64(samples)).Gamma(2)
 			f.WriteColor(ind, pixels, c)
@@ -60,46 +61,61 @@ func (f Frame) Render(pixels []byte, pitch int, h Hitable, samples int) {
 // Color checks if a ray intersects a list of objects,
 // returning their color. If there is no hit,
 // returns a background gradient
-func color(r geom.Ray, h Hitable, depth int) Color {
+func color(r geom.Ray, objects []Hitable, depth int) Color {
 	if depth <= 0 {
 		return NewColor(0.0, 0.0, 0.0)
 	}
-	if t, s := h.Hit(r, bias, math.MaxFloat64); t > 0 {
-		incident := r.Dir.Unit()
-		p := r.At(t)
-		n, m := s.Surface(p)
-		if m.Lambert { // Lambertian material
-			scattered := n.Unit().Plus(geom.SampleHemisphereCos())
-			if scattered.NearZero() {
-				scattered = n
-			}
-			r2 := geom.NewRay(p, scattered)
-			return color(r2, h, depth-1).Times(m.Color)
-		}
-		if m.Reflectivity > 0 { // Metalic material
-			reflected := incident.Reflect(n)
-			// Add roughness/fuzzyness
-			reflected = reflected.Plus(geom.SampleHemisphereCos().Scale(m.Roughness))
-			if reflected.Dot(n) > 0 {
-				r2 := geom.NewRay(p, reflected)
-				return color(r2, h, depth-1).Times(m.Color).Scale(m.Reflectivity)
-			}
-		}
-		if m.Transparent { // Dielectric material
-			etai, etat := 1.0, m.RefrIndex
-			refrRatio := etai / etat
 
-			refracts, rayDir := incident.Refract(n, refrRatio)
-			if !refracts {
-				rayDir = incident.Reflect(n)
-			}
-			r2 := geom.NewRay(p, rayDir)
-			return color(r2, h, depth-1)
+	tMin, tMax := bias, math.MaxFloat64
+	tNear := tMax
+	var surf Surface
+	hasHit := false
+	for _, s := range objects {
+		if ht, hs := s.Hit(r, tMin, tNear); ht > 0.0 {
+			hasHit = true
+			tNear = ht
+			surf = hs
 		}
-		return NewColor(0.0, 0.0, 0.0)
 	}
-	t := 0.5 * (r.Dir.Y() + 1.0)
-	c1 := NewColor(1.0, 1.0, 1.0).Scale(1.0 - t)
-	c2 := NewColor(0.5, 0.7, 1.0).Scale(t)
-	return c1.Plus(c2)
+
+	if !hasHit {
+		t := 0.5 * (r.Dir.Y() + 1.0)
+		c1 := NewColor(1.0, 1.0, 1.0).Scale(1.0 - t)
+		c2 := NewColor(0.5, 0.7, 1.0).Scale(t)
+		return c1.Plus(c2)
+	}
+
+	incident := r.Dir.Unit()
+	p := r.At(tNear)
+	n, m := surf.Surface(p)
+	if m.Lambert { // Lambertian material
+		scattered := n.Unit().Plus(geom.SampleHemisphereCos())
+		if scattered.NearZero() {
+			scattered = n
+		}
+		r2 := geom.NewRay(p, scattered)
+		return color(r2, objects, depth-1).Times(m.Color)
+	}
+	if m.Reflectivity > 0 { // Metalic material
+		reflected := incident.Reflect(n)
+		// Add roughness/fuzzyness
+		reflected = reflected.Plus(geom.SampleHemisphereCos().Scale(m.Roughness))
+		if reflected.Dot(n) > 0 {
+			r2 := geom.NewRay(p, reflected)
+			return color(r2, objects, depth-1).Times(m.Color).Scale(m.Reflectivity)
+		}
+	}
+	if m.Transparent { // Dielectric material
+		etai, etat := 1.0, m.RefrIndex
+		refrRatio := etai / etat
+
+		refracts, rayDir := incident.Refract(n, refrRatio)
+		if !refracts {
+			rayDir = incident.Reflect(n)
+		}
+		r2 := geom.NewRay(p, rayDir)
+		return color(r2, objects, depth-1)
+	}
+	return NewColor(0.0, 0.0, 0.0)
+
 }
