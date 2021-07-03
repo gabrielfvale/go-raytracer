@@ -25,3 +25,7 @@ func (l List) Hit(r geom.Ray, tMin, tMax float64) (t float64, surf Surface) {
 func (l List) Material() (m Material) {
 	return
 }
+
+func (l List) Pos() (p geom.Vec3) {
+	return
+}

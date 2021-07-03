@@ -30,3 +30,7 @@ func MetalicMaterial(albedo Color, reflectivity, roughness float64) Material {
 func DielectricMaterial(index float64) Material {
 	return Material{NewColor(0, 0, 0), index, 0, 0, 0, true, false}
 }
+
+func LightMaterial(intensity Color, emittance float64) Material {
+	return Material{intensity, 1, 0, 0, emittance, false, false}
+}

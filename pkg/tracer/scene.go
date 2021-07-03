@@ -82,10 +82,11 @@ func (scene Scene) trace(r geom.Ray, depth int) Color {
 	}
 
 	if !hasHit {
-		t := 0.5 * (r.Dir.Y() + 1.0)
-		c1 := NewColor(1.0, 1.0, 1.0).Scale(1.0 - t)
-		c2 := NewColor(0.5, 0.7, 1.0).Scale(t)
-		return c1.Plus(c2)
+		// t := 0.5 * (r.Dir.Y() + 1.0)
+		// c1 := NewColor(1.0, 1.0, 1.0).Scale(1.0 - t)
+		// c2 := NewColor(0.5, 0.7, 1.0).Scale(t)
+		// return c1.Plus(c2)
+		return NewColor(0, 0, 0)
 	}
 
 	result := NewColor(0.0, 0.0, 0.0)
@@ -95,16 +96,14 @@ func (scene Scene) trace(r geom.Ray, depth int) Color {
 
 	if m.Emittance > 0 {
 		result = result.Plus(m.Color.Scale(m.Emittance))
-	}
-	if m.Lambert { // Lambertian material
+	} else if m.Lambert { // Lambertian material
 		scattered := n.Unit().Plus(geom.SampleHemisphereCos())
 		if scattered.NearZero() {
 			scattered = n
 		}
 		r2 := geom.NewRay(p, scattered)
 		result = result.Plus(scene.trace(r2, depth-1).Times(m.Color))
-	}
-	if m.Reflectivity > 0 { // Metalic material
+	} else if m.Reflectivity > 0 { // Metalic material
 		reflected := incident.Reflect(n)
 		// Add roughness/fuzzyness
 		reflected = reflected.Plus(geom.SampleHemisphereCos().Scale(m.Roughness))
@@ -112,8 +111,7 @@ func (scene Scene) trace(r geom.Ray, depth int) Color {
 			r2 := geom.NewRay(p, reflected)
 			result = result.Plus(scene.trace(r2, depth-1).Times(m.Color).Scale(m.Reflectivity))
 		}
-	}
-	if m.Transparent { // Dielectric material
+	} else if m.Transparent { // Dielectric material
 		etai, etat := 1.0, m.RefrIndex
 		refrRatio := etai / etat
 
@@ -123,8 +121,32 @@ func (scene Scene) trace(r geom.Ray, depth int) Color {
 		}
 		r2 := geom.NewRay(p, rayDir)
 		result = result.Plus(scene.trace(r2, depth-1))
+	} else {
+		// calc diffuse
+		for _, l := range scene.Lights {
+			pos := l.Pos()
+			dir := pos.Minus(p).Unit()
+			fd := n.Dot(dir)
+			if fd < 0 {
+				fd = 0
+			}
+			// calculate shadow
+			tMin, tMax := bias, math.MaxFloat64
+			tNear := tMax
+			visible := 1.0
+			shadowRay := geom.NewRay(p, dir)
+			for _, o := range scene.Objects {
+				if ht, _ := o.Hit(shadowRay, tMin, tNear); ht > 0.0 {
+					m := o.Material()
+					if m.Emittance == 0 {
+						visible = 0.0
+					}
+					tNear = ht
+				}
+			}
+			result = result.Plus(m.Color.Scale(fd)).Scale(visible)
+		}
 	}
-	// calc diffuse
 	return result
 
 }

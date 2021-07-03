@@ -10,4 +10,5 @@ type Surface interface {
 type Hitable interface {
 	Hit(r geom.Ray, tMin, tMax float64) (t float64, s Surface)
 	Material() (m Material)
+	Pos() (p geom.Vec3)
 }

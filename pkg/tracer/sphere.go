@@ -49,6 +49,10 @@ func (s Sphere) Material() (m Material) {
 	return s.Mat
 }
 
+func (s Sphere) Pos() (p geom.Vec3) {
+	return s.Center
+}
+
 func (s Sphere) Surface(p geom.Vec3) (n geom.Vec3, m Material) {
 	return p.Minus(s.Center).Scale(s.Radius).Unit(), s.Mat
 }
