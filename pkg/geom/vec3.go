@@ -105,11 +105,19 @@ func (v Vec3) Reflect(n Vec3) Vec3 {
 	return v.Minus(n.Scale(2 * v.Dot(n))).Unit()
 }
 
-func (v Vec3) Refract(n Vec3, etaRatio float64) Vec3 {
+func (v Vec3) Refract(n Vec3, etaRatio float64) (refracts bool, r Vec3) {
 	cosi := math.Min(v.Inv().Dot(n), 1.0)
+	sini := math.Sqrt(1.0 - cosi*cosi)
+
+	// Check for total internal reflection
+	totalIntRefl := etaRatio*sini > 1.0
+	if totalIntRefl {
+		return false, r
+	}
+
 	r1 := v.Plus(n.Scale(cosi)).Scale(etaRatio)
 	r2 := n.Scale(-1 * math.Sqrt(math.Abs(1.0-r1.LenSq())))
-	return r1.Plus(r2).Unit()
+	return true, r1.Plus(r2).Unit()
 }
 
 // SampleSphere returns a random unit vector in a sphere

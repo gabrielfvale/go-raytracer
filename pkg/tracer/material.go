@@ -1,8 +1,6 @@
 package tracer
 
 import (
-	"math"
-
 	"github.com/gabrielfvale/go-raytracer/pkg/geom"
 )
 
@@ -79,17 +77,12 @@ func (m Dielectric) Scatter(in geom.Ray, p geom.Vec3, n geom.Vec3) (scattered bo
 	refrRatio := etai / etat
 	rayDir := geom.NewVec3(0.0, 0.0, 0.0)
 
-	// Check for total internal reflection
-	cost := math.Min(in.Dir.Inv().Dot(n), 1.0)
-	sint := math.Sqrt(1.0 - cost*cost)
-
-	totalIntRefl := refrRatio*sint > 1.0
-
-	if totalIntRefl {
-		rayDir = in.Dir.Reflect(n)
+	if refracts, refracted := in.Dir.Refract(refrNormal, refrRatio); refracts {
+		rayDir = refracted
 	} else {
-		rayDir = in.Dir.Refract(refrNormal, refrRatio)
+		rayDir = in.Dir.Reflect(n)
 	}
+
 	// refracted := in.Dir.Refract(refrNormal, refrRatio)
 	out = geom.NewRay(p, rayDir)
 	return true, out, attenuation
