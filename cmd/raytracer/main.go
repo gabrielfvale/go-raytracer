@@ -38,7 +38,13 @@ func main() {
 		tracer.NewSphere(geom.NewVec3(1.0, 0.0, -1.0), 0.5, matRight),
 	}
 
-	frame := tracer.NewFrame(width, height, aspect, objects)
+	cam := tracer.NewCamera(
+		geom.NewVec3(0, 0, 1),
+		geom.NewVec3(0, 0, -1),
+		geom.NewVec3(0, 1, 0),
+		90, aspect)
+
+	scene := tracer.NewScene(width, height, cam, objects)
 
 	/* Begin SDL startup */
 	if err := sdl.Init(sdl.INIT_EVERYTHING); err != nil {
@@ -75,7 +81,7 @@ func main() {
 	log.Printf("Started rendering (%d samples)", samples)
 	start := time.Now()
 
-	frame.Render(pixels, pitch, samples)
+	scene.Render(pixels, pitch, samples)
 
 	elapsed := time.Since(start)
 	log.Printf("Rendering took %s", elapsed)

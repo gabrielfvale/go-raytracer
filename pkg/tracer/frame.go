@@ -9,20 +9,29 @@ import (
 
 const bias = 0.001
 
-// Type definition for Frame
-type Frame struct {
+// Type definition for Scene
+type Scene struct {
 	W, H    int
-	AR      float64
+	Cam     Camera
 	Objects []Hitable
+	Lights  []Hitable
 }
 
-// NewFrame returns a Frame, given width, height and aspect ratio
-func NewFrame(width, height int, aspect float64, objects []Hitable) Frame {
-	return Frame{W: width, H: height, AR: aspect, Objects: objects}
+// NewScene returns a Scene, given width, height and object slice
+func NewScene(width, height int, cam Camera, objects []Hitable) Scene {
+	var lights []Hitable
+	// pre compute lights
+	for _, o := range objects {
+		m := o.Material()
+		if m.Emittance > 0 {
+			lights = append(lights, o)
+		}
+	}
+	return Scene{W: width, H: height, Cam: cam, Objects: objects, Lights: lights}
 }
 
 // WriteColor writes a Color to a pixel byte array
-func (f Frame) WriteColor(index int, pixels []byte, c Color) {
+func (scene Scene) WriteColor(index int, pixels []byte, c Color) {
 	r := uint8(255.99 * c.R())
 	g := uint8(255.99 * c.G())
 	b := uint8(255.99 * c.B())
@@ -34,26 +43,20 @@ func (f Frame) WriteColor(index int, pixels []byte, c Color) {
 // Render loops over the width and height, and for each sample
 // taking the average of the samples and setting the R, G, B
 // values in a pixel byte array.
-func (f Frame) Render(pixels []byte, pitch int, samples int) {
-	cam := NewCamera(
-		geom.NewVec3(0, 0, 1),
-		geom.NewVec3(0, 0, -1),
-		geom.NewVec3(0, 1, 0),
-		90, f.AR)
-
-	bpp := pitch / f.W // bytes-per-pixel
-	for j := f.H - 1; j >= 0; j-- {
-		for i := 0; i < f.W; i++ {
+func (scene Scene) Render(pixels []byte, pitch int, samples int) {
+	bpp := pitch / scene.W // bytes-per-pixel
+	for j := scene.H - 1; j >= 0; j-- {
+		for i := 0; i < scene.W; i++ {
 			ind := (j * pitch) + (i * bpp)
 			c := NewColor(0.0, 0.0, 0.0)
 			for s := 0; s < samples; s++ {
-				u := (float64(i) + rand.Float64()) / float64(f.W-1)
-				v := (float64(j) + rand.Float64()) / float64(f.H-1)
-				r := cam.Ray(u, v)
-				c = c.Plus(color(r, f.Objects, 50))
+				u := (float64(i) + rand.Float64()) / float64(scene.W-1)
+				v := (float64(j) + rand.Float64()) / float64(scene.H-1)
+				r := scene.Cam.Ray(u, v)
+				c = c.Plus(scene.trace(r, 50))
 			}
 			c = c.Scale(1 / float64(samples)).Gamma(2)
-			f.WriteColor(ind, pixels, c)
+			scene.WriteColor(ind, pixels, c)
 		}
 	}
 }
@@ -61,7 +64,7 @@ func (f Frame) Render(pixels []byte, pitch int, samples int) {
 // Color checks if a ray intersects a list of objects,
 // returning their color. If there is no hit,
 // returns a background gradient
-func color(r geom.Ray, objects []Hitable, depth int) Color {
+func (scene Scene) trace(r geom.Ray, depth int) Color {
 	if depth <= 0 {
 		return NewColor(0.0, 0.0, 0.0)
 	}
@@ -70,7 +73,7 @@ func color(r geom.Ray, objects []Hitable, depth int) Color {
 	tNear := tMax
 	var surf Surface
 	hasHit := false
-	for _, s := range objects {
+	for _, s := range scene.Objects {
 		if ht, hs := s.Hit(r, tMin, tNear); ht > 0.0 {
 			hasHit = true
 			tNear = ht
@@ -85,16 +88,21 @@ func color(r geom.Ray, objects []Hitable, depth int) Color {
 		return c1.Plus(c2)
 	}
 
+	result := NewColor(0.0, 0.0, 0.0)
 	incident := r.Dir.Unit()
 	p := r.At(tNear)
 	n, m := surf.Surface(p)
+
+	if m.Emittance > 0 {
+		result = result.Plus(m.Color.Scale(m.Emittance))
+	}
 	if m.Lambert { // Lambertian material
 		scattered := n.Unit().Plus(geom.SampleHemisphereCos())
 		if scattered.NearZero() {
 			scattered = n
 		}
 		r2 := geom.NewRay(p, scattered)
-		return color(r2, objects, depth-1).Times(m.Color)
+		result = result.Plus(scene.trace(r2, depth-1).Times(m.Color))
 	}
 	if m.Reflectivity > 0 { // Metalic material
 		reflected := incident.Reflect(n)
@@ -102,7 +110,7 @@ func color(r geom.Ray, objects []Hitable, depth int) Color {
 		reflected = reflected.Plus(geom.SampleHemisphereCos().Scale(m.Roughness))
 		if reflected.Dot(n) > 0 {
 			r2 := geom.NewRay(p, reflected)
-			return color(r2, objects, depth-1).Times(m.Color).Scale(m.Reflectivity)
+			result = result.Plus(scene.trace(r2, depth-1).Times(m.Color).Scale(m.Reflectivity))
 		}
 	}
 	if m.Transparent { // Dielectric material
@@ -114,8 +122,9 @@ func color(r geom.Ray, objects []Hitable, depth int) Color {
 			rayDir = incident.Reflect(n)
 		}
 		r2 := geom.NewRay(p, rayDir)
-		return color(r2, objects, depth-1)
+		result = result.Plus(scene.trace(r2, depth-1))
 	}
-	return NewColor(0.0, 0.0, 0.0)
+	// calc diffuse
+	return result
 
 }

@@ -9,4 +9,5 @@ type Surface interface {
 // Hitable represents an object that can be hit by a Ray
 type Hitable interface {
 	Hit(r geom.Ray, tMin, tMax float64) (t float64, s Surface)
+	Material() (m Material)
 }
