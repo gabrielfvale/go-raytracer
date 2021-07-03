@@ -24,7 +24,7 @@ func main() {
 	frame := tracer.NewFrame(width, height, aspect)
 
 	matGround := tracer.NewLambert(tracer.NewColor(0.8, 0.8, 0.0))
-	matCenter := tracer.NewLambert(tracer.NewColor(0.7, 0.3, 0.3))
+	matCenter := tracer.NewDielectric(1.53)
 	matLeft := tracer.NewMetal(tracer.NewColor(0.8, 0.8, 0.8), 0.3)
 	matRight := tracer.NewMetal(tracer.NewColor(0.8, 0.6, 0.2), 1.0)
 
