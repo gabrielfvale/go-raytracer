@@ -13,13 +13,17 @@ import (
 
 func main() {
 
-	const aspect float64 = 16.0 / 9.0
-	const width int = 640
-	const height int = int(float64(width) / aspect)
+	var width int
 	var samples int
-	fmt.Println(width, height)
+
+	flag.IntVar(&width, "w", 640, "")
 	flag.IntVar(&samples, "s", 8, "")
 	flag.Parse()
+
+	aspect := 16.0 / 9.0
+	height := int(float64(width) / aspect)
+
+	fmt.Println(width, height)
 
 	frame := tracer.NewFrame(width, height, aspect)
 
@@ -32,6 +36,7 @@ func main() {
 		tracer.NewSphere(geom.NewVec3(0.0, -100.5, -1.0), 100, matGround),
 		tracer.NewSphere(geom.NewVec3(0.0, 0.0, -1.0), 0.5, matCenter),
 		tracer.NewSphere(geom.NewVec3(-1.0, 0.0, -1.0), 0.5, matLeft),
+		tracer.NewSphere(geom.NewVec3(-1.0, 0.0, -1.0), -0.45, matLeft),
 		tracer.NewSphere(geom.NewVec3(1.0, 0.0, -1.0), 0.5, matRight),
 	)
 

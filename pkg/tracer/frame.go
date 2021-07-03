@@ -34,7 +34,11 @@ func (f Frame) WriteColor(index int, pixels []byte, c Color) {
 // taking the average of the samples and setting the R, G, B
 // values in a pixel byte array.
 func (f Frame) Render(pixels []byte, pitch int, h Hitable, samples int) {
-	cam := NewCamera(geom.NewVec3(-2, 2, 1), geom.NewVec3(0, 0, -1), geom.NewVec3(0, 1, 0), 90, f.AR)
+	cam := NewCamera(
+		geom.NewVec3(0, 0, 1),
+		geom.NewVec3(0, 0, -1),
+		geom.NewVec3(0, 1, 0),
+		90, f.AR)
 
 	bpp := pitch / f.W // bytes-per-pixel
 	for j := f.H - 1; j >= 0; j-- {
@@ -63,8 +67,9 @@ func color(r geom.Ray, h Hitable, depth int) Color {
 	if t, s := h.Hit(r, bias, math.MaxFloat64); t > 0 {
 		p := r.At(t)
 		n, m := s.Surface(p)
-		if scattered, outRay, attenuation := m.Scatter(r, p, n); scattered {
-			return color(outRay, h, depth-1).Times(attenuation)
+		if scattered, outVec, attenuation := m.Scatter(r.Dir.Unit(), n); scattered {
+			r2 := geom.NewRay(p, outVec)
+			return color(r2, h, depth-1).Times(attenuation)
 		}
 		return NewColor(0.0, 0.0, 0.0)
 	}
