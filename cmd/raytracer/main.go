@@ -30,17 +30,19 @@ func main() {
 	matGlass := tracer.DielectricMaterial(1.5)
 	matMetal := tracer.MetalicMaterial(tracer.NewColor(0.8, 0.6, 0.2), 1, 0.0)
 	matLight := tracer.LightMaterial(tracer.NewColor(0.8, 0.8, 0.8), 1)
+	// matNormal := tracer.NormalMaterial()
 
 	objects := []tracer.Hitable{
 		tracer.NewSphere(geom.NewVec3(0.0, -100.5, -1.0), 100, matGround),
 		tracer.NewSphere(geom.NewVec3(0.0, 0.0, -1.0), 0.5, matCenter),
 		tracer.NewSphere(geom.NewVec3(-1.0, 0.0, -1.0), 0.5, matGlass),
 		tracer.NewSphere(geom.NewVec3(1.0, 0.0, -1.0), 0.5, matMetal),
-		tracer.NewSphere(geom.NewVec3(0.0, 1.4, -1.0), 0.25, matLight),
+		tracer.NewAABB(geom.NewVec3(-0.25, 1.2, -0.75), geom.NewVec3(0.25, 1.21, -0.25), matLight),
+		tracer.NewAABB(geom.NewVec3(-0.25, 0.1, 0), geom.NewVec3(0.25, 0.2, 0.25), matGlass),
 	}
 
 	cam := tracer.NewCamera(
-		geom.NewVec3(0, 0, 1),
+		geom.NewVec3(0, 1.0, 1),
 		geom.NewVec3(0, 0, -1),
 		geom.NewVec3(0, 1, 0),
 		90, aspect)

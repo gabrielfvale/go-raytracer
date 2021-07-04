@@ -100,11 +100,37 @@ func (v Vec3) NearZero() bool {
 	return math.Abs(v.X()) < s && math.Abs(v.Y()) < s && math.Abs(v.Z()) < s
 }
 
+// Min returns the minimum between two Vec3
+func (v Vec3) Min(v2 Vec3) Vec3 {
+	return NewVec3(math.Min(v.X(), v2.X()), math.Min(v.Y(), v2.Y()), math.Min(v.Z(), v2.Z()))
+}
+
+// Max returns the maximum between two Vec3
+func (v Vec3) Max(v2 Vec3) Vec3 {
+	return NewVec3(math.Max(v.X(), v2.X()), math.Max(v.Y(), v2.Y()), math.Max(v.Z(), v2.Z()))
+}
+
+// Sign returns a sign vector
+func (v Vec3) Sign() Vec3 {
+	signX, signY, signZ := 1.0, 1.0, 1.0
+	if v.X() < 0.0 {
+		signX = -1.0
+	}
+	if v.Y() < 0.0 {
+		signY = -1.0
+	}
+	if v.Z() < 0.0 {
+		signZ = -1.0
+	}
+	return NewVec3(signX, signY, signZ)
+}
+
 // Reflect returns a reflected Vec3 in relation to a normal n
 func (v Vec3) Reflect(n Vec3) Vec3 {
 	return v.Minus(n.Scale(2 * v.Dot(n))).Unit()
 }
 
+// Refract returns a refracted Vec3
 func (v Vec3) Refract(n Vec3, etaRatio float64) (refracts bool, r Vec3) {
 	refrN := n
 	ratio := etaRatio

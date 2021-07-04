@@ -93,6 +93,12 @@ func (scene Scene) trace(r geom.Ray, depth int) Color {
 	incident := r.Dir.Unit()
 	p := r.At(tNear)
 	n, m := surf.Surface(p)
+	// n = n.Unit()
+
+	// "Normal" material
+	if m.Normal {
+		return NewColor(n.X()+0.5, n.Y()+0.5, n.Z()+0.5).Scale(0.5)
+	}
 
 	if m.Emittance > 0 {
 		result = result.Plus(m.Color.Scale(m.Emittance))
