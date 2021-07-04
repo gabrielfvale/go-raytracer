@@ -29,10 +29,19 @@ func (aabb AABB) Hit(r geom.Ray, tMin, tMax float64) (t float64, surf Surface) {
 	n, f = n.Min(f), n.Max(f)
 	t0 := math.Max(math.Max(n.X(), n.Y()), n.Z())
 	t1 := math.Min(math.Min(f.X(), f.Y()), f.Z())
-	if t0 > 0 && t0 < t1 {
-		return t0, aabb
+
+	ltMin, ltMax := tMin, tMax
+	if t0 > ltMin {
+		ltMin = t0
 	}
-	return -1.0, aabb
+	if t1 < ltMax {
+		ltMax = t1
+	}
+
+	if ltMax <= ltMin {
+		return -1.0, aabb
+	}
+	return t0, aabb
 }
 
 func (a AABB) Material() (m Material) {

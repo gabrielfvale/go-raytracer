@@ -137,15 +137,15 @@ func (scene Scene) trace(r geom.Ray, depth int) Color {
 				fd = 0
 			}
 			// calculate shadow
+			visible := 1.0
 			tMin, tMax := bias, math.MaxFloat64
 			tNear := tMax
-			visible := 1.0
 			shadowRay := geom.NewRay(p, dir)
 			for _, o := range scene.Objects {
 				if ht, _ := o.Hit(shadowRay, tMin, tNear); ht > 0.0 {
 					m := o.Material()
 					if m.Emittance == 0 {
-						visible = 0.0
+						visible = 0.5
 					}
 					tNear = ht
 				}
