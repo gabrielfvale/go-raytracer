@@ -1,12 +1,13 @@
 package tracer
 
 import (
-	"fmt"
 	"math"
 	"math/rand"
 	"runtime"
 
 	"github.com/gabrielfvale/go-raytracer/pkg/geom"
+	"github.com/sbwhitecap/tqdm"
+	"github.com/sbwhitecap/tqdm/iterators"
 )
 
 const bias = 0.001
@@ -19,14 +20,9 @@ type Scene struct {
 	Lights  []Hitable
 }
 
-// type result struct {
-// 	row    int
-// 	pixels []byte
-// }
-
-type ppmres struct {
+type result struct {
 	row    int
-	pixels string
+	pixels []byte
 }
 
 // NewScene returns a Scene, given width, height and object slice
@@ -56,29 +52,21 @@ func (scene Scene) WriteColor(index int, pixels []byte, c Color) {
 // taking the average of the samples and setting the R, G, B
 // values in a pixel byte array.
 func (scene Scene) Render(pixels []byte, pitch int, samples int) {
-	fmt.Println("P3")
-	fmt.Println(scene.W, scene.H)
-	fmt.Println("255")
-	// bpp := pitch / scene.W // bytes-per-pixel
-	worker := func(jobs <-chan int, results chan<- ppmres) {
+	bpp := pitch / scene.W // bytes-per-pixel
+	worker := func(jobs <-chan int, results chan<- result) {
 		for y := range jobs {
-			// res := result{row: y, pixels: make([]byte, scene.W*bpp)}
-			res := ppmres{row: y, pixels: ""}
+			res := result{row: y, pixels: make([]byte, bpp*scene.W)}
 			for x := 0; x < scene.W; x++ {
-				// ind := (x * bpp)
+				ind := (x * bpp)
 				c := NewColor(0.0, 0.0, 0.0)
 				for s := 0; s < samples; s++ {
-					u := (float64(x) + rand.Float64()) / float64(scene.W-1)
-					v := 1 - (float64(y)+rand.Float64())/float64(scene.H-1)
+					u := (float64(x) + rand.Float64()) / float64(scene.W)
+					v := (float64(y) + rand.Float64()) / float64(scene.H)
 					r := scene.Cam.Ray(u, v)
 					c = c.Plus(scene.trace(r, 5))
 				}
 				c = c.Scale(1 / float64(samples)).Gamma(2)
-				ir := int(math.Min(255, 255.99*c.R()))
-				ig := int(math.Min(255, 255.99*c.G()))
-				ib := int(math.Min(255, 255.99*c.B()))
-				res.pixels += fmt.Sprintln(ir, ig, ib)
-				// scene.WriteColor(ind, res.pixels, c)
+				scene.WriteColor(ind, res.pixels, c)
 			}
 			results <- res
 		}
@@ -86,8 +74,8 @@ func (scene Scene) Render(pixels []byte, pitch int, samples int) {
 
 	workers := runtime.NumCPU() + 1
 	jobs := make(chan int, scene.H)
-	results := make(chan ppmres, workers+1)
-	pending := make(map[int]string, 0)
+	results := make(chan result, workers+1)
+	pending := make(map[int][]byte, 0)
 	cursor := 0
 
 	for w := 0; w < workers; w++ {
@@ -96,32 +84,19 @@ func (scene Scene) Render(pixels []byte, pitch int, samples int) {
 	for y := 0; y < scene.H; y++ {
 		jobs <- y
 	}
+	// for y := 0; y < scene.H; y++
 	close(jobs)
-	for y := 0; y < scene.H; y++ {
-		// fmt.Fprintln(os.Stderr, "waiting for results...")
+	tqdm.With(iterators.Interval(0, scene.H), "Rendering", func(v interface{}) (brk bool) {
 		r := <-results
-		// fmt.Fprintln(os.Stderr, "got results for", r.row)
+
 		pending[r.row] = r.pixels
-		for pending[cursor] != "" {
-			fmt.Println(pending[cursor])
+		for len(pending[cursor]) > 0 {
+			copy(pixels[cursor*pitch:], pending[cursor])
 			delete(pending, cursor)
 			cursor++
 		}
-	}
-	// for j := scene.H - 1; j >= 0; j-- {
-	// 	for i := 0; i < scene.W; i++ {
-	// 		ind := (j * pitch) + (i * bpp)
-	// 		c := NewColor(0.0, 0.0, 0.0)
-	// 		for s := 0; s < samples; s++ {
-	// 			u := (float64(i) + rand.Float64()) / float64(scene.W-1)
-	// 			v := (float64(j) + rand.Float64()) / float64(scene.H-1)
-	// 			r := scene.Cam.Ray(u, v)
-	// 			c = c.Plus(scene.trace(r, 5))
-	// 		}
-	// 		c = c.Scale(1 / float64(samples)).Gamma(2)
-	// 		scene.WriteColor(ind, pixels, c)
-	// 	}
-	// }
+		return
+	})
 }
 
 // Color checks if a ray intersects a list of objects,
