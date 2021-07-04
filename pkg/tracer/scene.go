@@ -7,8 +7,7 @@ import (
 	"time"
 
 	"github.com/gabrielfvale/go-raytracer/pkg/geom"
-	"github.com/sbwhitecap/tqdm"
-	"github.com/sbwhitecap/tqdm/iterators"
+	"github.com/gabrielfvale/go-raytracer/pkg/util"
 )
 
 const bias = 0.001
@@ -88,8 +87,11 @@ func (scene Scene) Render(pixels []byte, pitch int, samples int) {
 	}
 	// for y := 0; y < scene.H; y++
 	close(jobs)
-	tqdm.With(iterators.Interval(0, scene.H), "Rendering", func(v interface{}) (brk bool) {
+	bar := util.NewProgress(0, scene.H)
+	for y := 0; y < scene.H; y++ {
 		r := <-results
+
+		bar.Tick()
 
 		pending[r.row] = r.pixels
 		for len(pending[cursor]) > 0 {
@@ -97,8 +99,7 @@ func (scene Scene) Render(pixels []byte, pitch int, samples int) {
 			delete(pending, cursor)
 			cursor++
 		}
-		return
-	})
+	}
 }
 
 // Color checks if a ray intersects a list of objects,
