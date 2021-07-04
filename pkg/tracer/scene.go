@@ -4,6 +4,7 @@ import (
 	"math"
 	"math/rand"
 	"runtime"
+	"time"
 
 	"github.com/gabrielfvale/go-raytracer/pkg/geom"
 	"github.com/sbwhitecap/tqdm"
@@ -53,19 +54,20 @@ func (scene Scene) WriteColor(index int, pixels []byte, c Color) {
 // values in a pixel byte array.
 func (scene Scene) Render(pixels []byte, pitch int, samples int) {
 	bpp := pitch / scene.W // bytes-per-pixel
-	worker := func(jobs <-chan int, results chan<- result) {
+	worker := func(jobs <-chan int, results chan<- result, rnd *rand.Rand) {
 		for y := range jobs {
 			res := result{row: y, pixels: make([]byte, bpp*scene.W)}
 			for x := 0; x < scene.W; x++ {
 				ind := (x * bpp)
 				c := NewColor(0.0, 0.0, 0.0)
 				for s := 0; s < samples; s++ {
-					u := (float64(x) + rand.Float64()) / float64(scene.W)
-					v := (float64(y) + rand.Float64()) / float64(scene.H)
+					u := (float64(x) + rnd.Float64()) / float64(scene.W)
+					v := (float64(y) + rnd.Float64()) / float64(scene.H)
 					r := scene.Cam.Ray(u, v)
-					c = c.Plus(scene.trace(r, 5))
+					c = c.Plus(scene.trace(r, 5, rnd))
 				}
 				c = c.Scale(1 / float64(samples)).Gamma(2)
+				c = c.Clamp()
 				scene.WriteColor(ind, res.pixels, c)
 			}
 			results <- res
@@ -79,7 +81,7 @@ func (scene Scene) Render(pixels []byte, pitch int, samples int) {
 	cursor := 0
 
 	for w := 0; w < workers; w++ {
-		go worker(jobs, results)
+		go worker(jobs, results, rand.New(rand.NewSource(time.Now().Unix())))
 	}
 	for y := 0; y < scene.H; y++ {
 		jobs <- y
@@ -102,7 +104,7 @@ func (scene Scene) Render(pixels []byte, pitch int, samples int) {
 // Color checks if a ray intersects a list of objects,
 // returning their color. If there is no hit,
 // returns a background gradient
-func (scene Scene) trace(r geom.Ray, depth int) Color {
+func (scene Scene) trace(r geom.Ray, depth int, rnd *rand.Rand) Color {
 	if depth <= 0 {
 		return NewColor(0.0, 0.0, 0.0)
 	}
@@ -141,19 +143,19 @@ func (scene Scene) trace(r geom.Ray, depth int) Color {
 	if m.Emittance > 0 {
 		result = result.Plus(m.Color.Scale(m.Emittance))
 	} else if m.Lambert { // Lambertian material
-		scattered := n.Unit().Plus(geom.SampleHemisphereCos())
+		scattered := n.Unit().Plus(geom.SampleHemisphere(rnd))
 		if scattered.NearZero() {
 			scattered = n
 		}
 		r2 := geom.NewRay(p, scattered)
-		result = result.Plus(scene.trace(r2, depth-1).Times(m.Color))
+		result = result.Plus(scene.trace(r2, depth-1, rnd).Times(m.Color))
 	} else if m.Reflectivity > 0 { // Metalic material
 		reflected := incident.Reflect(n)
 		// Add roughness/fuzzyness
-		reflected = reflected.Plus(geom.SampleHemisphereCos().Scale(m.Roughness))
+		reflected = reflected.Plus(geom.SampleHemisphereCos(rnd).Scale(m.Roughness))
 		if reflected.Dot(n) > 0 {
 			r2 := geom.NewRay(p, reflected)
-			result = result.Plus(scene.trace(r2, depth-1).Times(m.Color).Scale(m.Reflectivity))
+			result = result.Plus(scene.trace(r2, depth-1, rnd).Times(m.Color).Scale(m.Reflectivity))
 		}
 	} else if m.Transparent { // Dielectric material
 		etai, etat := 1.0, m.RefrIndex
@@ -164,7 +166,7 @@ func (scene Scene) trace(r geom.Ray, depth int) Color {
 			rayDir = incident.Reflect(n)
 		}
 		r2 := geom.NewRay(p, rayDir)
-		result = result.Plus(scene.trace(r2, depth-1))
+		result = result.Plus(scene.trace(r2, depth-1, rnd))
 	} else {
 		// calc diffuse
 		for _, l := range scene.Lights {

@@ -49,6 +49,10 @@ func (c Color) Scale(n float64) Color {
 	return Color{Vec3: c.Vec3.Scale(n)}
 }
 
+func (c Color) Clamp() Color {
+	return NewColor(math.Min(1.0, c.R()), math.Min(1.0, c.G()), math.Min(1.0, c.B()))
+}
+
 // Gamma raises each of R, G, and B to 1/n
 func (c Color) Gamma(n float64) Color {
 	ni := 1 / n

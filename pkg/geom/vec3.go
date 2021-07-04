@@ -159,9 +159,9 @@ func (v Vec3) Refract(n Vec3, etaRatio float64) (refracts bool, r Vec3) {
 }
 
 // SampleSphere returns a random unit vector in a sphere
-func SampleSphere() Vec3 {
-	u1 := rand.Float64()
-	u2 := rand.Float64()
+func SampleSphere(rnd *rand.Rand) Vec3 {
+	u1 := rnd.Float64()
+	u2 := rnd.Float64()
 
 	x := math.Cos(2*math.Pi*u2) * 2 * math.Sqrt(u1*(1.0-u1))
 	y := math.Sin(2*math.Pi*u2) * 2 * math.Sqrt(u1*(1.0-u1))
@@ -170,9 +170,9 @@ func SampleSphere() Vec3 {
 }
 
 // SampleHemisphere returns a random unit vector in a hemisphere
-func SampleHemisphere() Vec3 {
-	u1 := rand.Float64()
-	u2 := rand.Float64()
+func SampleHemisphere(rnd *rand.Rand) Vec3 {
+	u1 := rnd.Float64()
+	u2 := rnd.Float64()
 
 	x := math.Cos(2*math.Pi*u2) * 2 * math.Sqrt(1.0-u1*u1)
 	y := math.Sin(2*math.Pi*u2) * 2 * math.Sqrt(1.0-u1*u1)
@@ -181,9 +181,9 @@ func SampleHemisphere() Vec3 {
 }
 
 // SampleHemisphereCos returns a random unit vector (weighted) in a hemisphere
-func SampleHemisphereCos() Vec3 {
-	u1 := rand.Float64()
-	u2 := rand.Float64()
+func SampleHemisphereCos(rnd *rand.Rand) Vec3 {
+	u1 := rnd.Float64()
+	u2 := rnd.Float64()
 
 	th := 2 * math.Pi * u2
 	r := math.Sqrt(u1)
