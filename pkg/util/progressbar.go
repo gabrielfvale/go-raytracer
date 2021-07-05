@@ -32,7 +32,7 @@ func (bar *Bar) Tick() {
 	if bar.percent != last && bar.percent%2 == 0 {
 		bar.rate += "█"
 	}
-	fmt.Fprintf(os.Stderr, "\r[%-50s]%3d%% %6d/%d", bar.rate, bar.percent, bar.cur, bar.total)
+	fmt.Fprintf(os.Stderr, "\r|%-50s|%3d%% %6d/%d", bar.rate, bar.percent, bar.cur, bar.total)
 	bar.cur++
 	if bar.cur == bar.total+1 {
 		fmt.Println()

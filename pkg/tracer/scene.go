@@ -78,6 +78,7 @@ func (scene Scene) Render(pixels []byte, pitch int, samples int) {
 	results := make(chan result, workers+1)
 	pending := make(map[int][]byte, 0)
 	cursor := 0
+	bar := util.NewProgress(0, scene.H)
 
 	for w := 0; w < workers; w++ {
 		go worker(jobs, results, rand.New(rand.NewSource(time.Now().Unix())))
@@ -85,14 +86,12 @@ func (scene Scene) Render(pixels []byte, pitch int, samples int) {
 	for y := 0; y < scene.H; y++ {
 		jobs <- y
 	}
-	// for y := 0; y < scene.H; y++
+
 	close(jobs)
-	bar := util.NewProgress(0, scene.H)
+
 	for y := 0; y < scene.H; y++ {
 		r := <-results
-
 		bar.Tick()
-
 		pending[r.row] = r.pixels
 		for len(pending[cursor]) > 0 {
 			copy(pixels[cursor*pitch:], pending[cursor])

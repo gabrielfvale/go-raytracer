@@ -20,7 +20,7 @@ func NewCamera(eye, lookat, vup geom.Vec3, vfov, aspect float64) (c Camera) {
 
 	w := eye.Minus(lookat).Unit()
 	u := vup.Cross(w).Unit()
-	v := w.Cross(u).Unit()
+	v := u.Cross(w).Unit()
 
 	c.origin = eye
 	c.lowerLeft = c.origin.Minus(u.Scale(halfW)).Minus(v.Scale(halfH)).Minus(w)
