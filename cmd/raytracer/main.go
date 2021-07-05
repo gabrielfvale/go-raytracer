@@ -5,9 +5,11 @@ import (
 	"fmt"
 	"log"
 	"time"
+	"unsafe"
 
 	"github.com/gabrielfvale/go-raytracer/pkg/geom"
 	"github.com/gabrielfvale/go-raytracer/pkg/tracer"
+	"github.com/gabrielfvale/go-raytracer/pkg/util"
 	"github.com/veandco/go-sdl2/sdl"
 )
 
@@ -15,9 +17,11 @@ func main() {
 
 	var width int
 	var samples int
+	var output string
 
 	flag.IntVar(&width, "w", 640, "")
 	flag.IntVar(&samples, "s", 8, "")
+	flag.StringVar(&output, "o", "", "")
 	flag.Parse()
 
 	aspect := 1.0
@@ -51,6 +55,15 @@ func main() {
 		40, aspect)
 
 	scene := tracer.NewScene(width, height, cam, objects)
+
+	if output != "" { // render to image
+		bpp := int(unsafe.Sizeof(uint32(0)))
+		pitch := bpp * height
+		pixels := make([]uint8, width*pitch)
+		scene.Render(pixels, pitch, samples)
+		util.SaveToImage(output, width, height, pixels)
+		return
+	}
 
 	/* Begin SDL startup */
 	if err := sdl.Init(sdl.INIT_EVERYTHING); err != nil {
@@ -96,7 +109,7 @@ func main() {
 	texture.Unlock()
 
 	renderer.Clear()
-	renderer.CopyEx(texture, nil, nil, 0, nil, sdl.FLIP_VERTICAL)
+	renderer.Copy(texture, nil, nil)
 	renderer.Present()
 
 	running := true
