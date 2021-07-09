@@ -132,15 +132,16 @@ func (pmap *PhotonMap) IrradianceEst(pos, normal [3]float64, maxDist float64, np
 		}
 	}
 
-	closest := nearest[found].(*Photon)
-	dist2 := dist2(pos, closest.pos)
-
 	// estimate of density
-	tmp := (1.0 / math.Pi) / math.Sqrt(dist2)
+	/*
+		closest := nearest[found].(*Photon)
+		dist2 := dist2(pos, closest.pos)
+		tmp := (1.0 / math.Pi) / math.Sqrt(dist2)
 
-	irrad[0] *= tmp
-	irrad[1] *= tmp
-	irrad[2] *= tmp
+		irrad[0] *= tmp
+		irrad[1] *= tmp
+		irrad[2] *= tmp
+	*/
 	return
 }
 

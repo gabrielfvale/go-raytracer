@@ -19,7 +19,7 @@ type Scene struct {
 	Cam       Camera
 	Objects   []Hitable
 	Lights    []Hitable
-	NotLights []Hitable
+	lightArea float64
 	pmap      *PhotonMap
 }
 
@@ -31,17 +31,17 @@ type result struct {
 // NewScene returns a Scene, given width, height and object slice
 func NewScene(width, height int, cam Camera, objects []Hitable, pmap *PhotonMap) Scene {
 	var lights []Hitable
-	var notlights []Hitable
+	var lightArea float64 = 0.0
 	// pre compute lights
 	for _, o := range objects {
 		m := o.Material()
 		if m.Emittance > 0 {
 			lights = append(lights, o)
-		} else {
-			notlights = append(notlights, o)
+			e := o.Material().Color
+			lightArea += e.R() + e.G() + e.B()
 		}
 	}
-	return Scene{W: width, H: height, Cam: cam, Objects: objects, Lights: lights, NotLights: notlights, pmap: pmap}
+	return Scene{W: width, H: height, Cam: cam, Objects: objects, Lights: lights, lightArea: lightArea, pmap: pmap}
 }
 
 // WriteColor writes a Color to a pixel byte array
@@ -71,21 +71,28 @@ func randSample(n geom.Vec3) geom.Vec3 {
 	}
 	u = u.Cross(w).Unit()
 	v := w.Cross(u)
-	return u.Scale(math.Cos(r1) * r2s).Plus(v.Scale(math.Sin(r1) * r2s)).Plus(w.Scale(math.Sqrt(1 - r2))).Unit()
+
+	uc := u.Scale(math.Cos(r1) * r2s)
+	vc := v.Scale(math.Sin(r1) * r2s)
+	wc := w.Scale(math.Sqrt(1 - r2))
+	return uc.Plus(vc).Plus(wc).Unit()
+	// return u.Scale(math.Cos(r1) * r2s).Plus(v.Scale(math.Sin(r1) * r2s)).Plus(w.Scale(math.Sqrt(1 - r2))).Unit()
 }
 
 // Render loops over the width and height, and for each sample
 // taking the average of the samples and setting the R, G, B
 // values in a pixel byte array.
 func (scene Scene) Render(pixels []byte, pitch int, samples int) {
-
 	rnd1 := rand.New(rand.NewSource(time.Now().Unix()))
 	pmap := scene.pmap
+	// pbar := util.NewProgress(0, pmap.maxPhotons)
 	fmt.Println("tracing photons")
 	for _, l := range scene.Lights {
-		for pmap.storedPhotons < pmap.maxPhotons {
+		e := l.Material().Color
+		area := e.R() + e.G() + e.B()
+		for pmap.storedPhotons < pmap.maxPhotons*int(scene.lightArea/area) {
 			pos := l.Pos()
-			col := NewColor(15.0, 15.0, 15.0)
+			col := NewColor(10.0, 10.0, 10.0)
 			nl := geom.NewVec3(0, -1, 0)
 			rp := geom.NewRay(pos, randSample(nl))
 			scene.tracePhotons(rp, 4, col, rnd1)
@@ -93,7 +100,7 @@ func (scene Scene) Render(pixels []byte, pitch int, samples int) {
 	}
 
 	pmap.Balance()
-	pmap.ScalePhotonPower(1.0 / 5000)
+	pmap.ScalePhotonPower(1.0 / float64(pmap.maxPhotons))
 
 	bpp := pitch / scene.W // bytes-per-pixel
 	worker := func(jobs <-chan int, results chan<- result, rnd *rand.Rand) {
@@ -144,11 +151,11 @@ func (scene Scene) Render(pixels []byte, pitch int, samples int) {
 	}
 }
 
-func (scene Scene) intersect(r geom.Ray, obj []Hitable) (hit bool, t float64, s Surface) {
+func (scene Scene) intersect(r geom.Ray) (hit bool, t float64, s Surface) {
 	tMin, tMax := bias, math.MaxFloat64
 	t = tMax
 	hit = false
-	for _, o := range obj {
+	for _, o := range scene.Objects {
 		if ht, hs := o.Hit(r, tMin, t); ht > 0.0 {
 			hit = true
 			t = ht
@@ -166,7 +173,7 @@ func (scene Scene) trace(r geom.Ray, depth int, rnd *rand.Rand) Color {
 		return NewColor(0.0, 0.0, 0.0)
 	}
 
-	hit, tNear, surf := scene.intersect(r, scene.Objects)
+	hit, tNear, surf := scene.intersect(r)
 
 	if !hit {
 		// t := 0.5 * (r.Dir.Y() + 1.0)
@@ -189,7 +196,7 @@ func (scene Scene) trace(r geom.Ray, depth int, rnd *rand.Rand) Color {
 	irrad := scene.pmap.IrradianceEst(p.E, orientedN.E, 10, 100)
 	// fmt.Println(irrad)
 	return NewColor(irrad[0], irrad[1], irrad[2])
-	// result = result.Plus(NewColor(irrad[0], irrad[1], irrad[2]))
+	result = result.Plus(NewColor(irrad[0], irrad[1], irrad[2]))
 
 	// "Normal" material
 	if m.Normal {
@@ -225,6 +232,8 @@ func (scene Scene) trace(r geom.Ray, depth int, rnd *rand.Rand) Color {
 		result = result.Plus(scene.trace(r2, depth-1, rnd))
 	} else {
 		// calc diffuse
+		irrad := scene.pmap.IrradianceEst(p.E, orientedN.E, 5, 100)
+		result = result.Plus(NewColor(irrad[0], irrad[1], irrad[2]))
 		for _, l := range scene.Lights {
 			pos := l.Pos()
 			dir := pos.Minus(p).Unit()
@@ -246,23 +255,22 @@ func (scene Scene) trace(r geom.Ray, depth int, rnd *rand.Rand) Color {
 					tNear = ht
 				}
 			}
-			result = result.Plus(m.Color.Scale(fd)).Scale(visible)
+			result = result.Plus(m.Color.Scale(fd).Scale(visible))
 		}
 	}
 	return result
-
 }
 
 // Color checks if a ray intersects a list of objects,
 // returning their color. If there is no hit,
 // returns a background gradient
-func (scene Scene) tracePhotons(r geom.Ray, depth int, color Color, rnd *rand.Rand) {
+func (scene Scene) tracePhotons(r geom.Ray, depth int, power Color, rnd *rand.Rand) {
 	// fmt.Println(depth)
 	if depth <= 0 {
 		return
 	}
 
-	hit, tNear, surf := scene.intersect(r, scene.NotLights)
+	hit, tNear, surf := scene.intersect(r)
 
 	if !hit {
 		return
@@ -279,43 +287,43 @@ func (scene Scene) tracePhotons(r geom.Ray, depth int, color Color, rnd *rand.Ra
 	// BRDF modulator
 	f := m.Color
 	// Maximum reflectivity for russian roulette
-	rrp := math.Max(math.Max(f.R(), f.G()), f.B())
-	// pd_avg := (f.R() + f.G() + f.B()) / 3
+	// rrp := math.Max(math.Max(f.R(), f.G()), f.B())
+	rrp := (f.R() + f.G() + f.B()) / 3
 
 	// "Normal" material
-	if m.Normal {
+	if m.Normal || m.Emittance > 0 {
 		return
 	}
 
 	if m.Lambert { // Lambertian material
 
 	} else if m.Reflectivity > 0 { // Metalic material
-		// fmt.Println("reflect photon", depth)
-		// reflected := incident.Reflect(n)
+		reflected := incident.Reflect(n)
 		// Add roughness/fuzzyness
-		// reflected = reflected.Plus(geom.SampleHemisphereCos(rnd).Scale(m.Roughness))
-		// r2 := geom.NewRay(p, reflected)
-		// scene.tracePhotons(r2, depth-1, f.Times(color).Scale(1.0/rrp), rnd)
+		reflected = reflected.Plus(randSample(orientedN).Scale(m.Roughness))
+		r2 := geom.NewRay(p, reflected)
+		scene.tracePhotons(r2, depth-1, f.Times(power), rnd)
 	} else if m.Transparent { // Dielectric material
-		// etai, etat := 1.0, m.RefrIndex
-		// refrRatio := etai / etat
+		etai, etat := 1.0, m.RefrIndex
+		refrRatio := etai / etat
 
-		// refracts, rayDir := incident.Refract(n, refrRatio)
-		// if !refracts {
-		// 	rayDir = incident.Reflect(n)
-		// }
-		// r2 := geom.NewRay(p, rayDir)
-		// scene.tracePhotons(r2, depth-1, color, rnd)
-		// result = result.Plus(scene.trace(r2, depth-1, rnd))
+		refracts, rayDir := incident.Refract(n, refrRatio)
+		if !refracts {
+			rayDir = incident.Reflect(n)
+		}
+		r2 := geom.NewRay(p, rayDir)
+		scene.tracePhotons(r2, depth-1, power, rnd)
 	} else {
+
 		if rnd.Float64() < rrp { // absorb photon
 			// fmt.Println("absorb photon", depth)
-			att := f.Scale(1.0 / (1.0 - rrp)).Times(color)
+			att := f.Times(power).Scale(1.0 / (1.0 - rrp))
 			scene.pmap.Store(att.E, p.E, incident.E)
 		} else { // trace another ray
 			// Random ray
-			r2 := geom.NewRay(p, geom.SampleHemisphereCos(rnd))
-			scene.tracePhotons(r2, depth-1, f.Times(color).Scale(1.0/rrp), rnd)
+			// att := f.Times(power).Scale(1.0 / rrp)
+			r2 := geom.NewRay(p, randSample(orientedN))
+			scene.tracePhotons(r2, depth-1, f.Times(power), rnd)
 		}
 	}
 }
