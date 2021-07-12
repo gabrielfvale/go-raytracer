@@ -135,6 +135,8 @@ func (scene Scene) Render(pixels []byte, pitch int, samples int) {
 	log.Printf("Rendering took %s", elapsed)
 }
 
+// mapPhotons takes the two photons maps from the scene
+// and runs the photon mapping routines for each one
 func (scene Scene) mapPhotons() {
 	rnd1 := rand.New(rand.NewSource(time.Now().Unix()))
 	global := scene.globalPmap
@@ -227,7 +229,7 @@ func (scene Scene) irradiance(pmap *PhotonMap, r geom.Ray, depth int, rnd *rand.
 	} else {
 		// Material is diffuse
 		// Direct visualization of photon map
-		irradVec := pmap.IrradianceEst(p, n, 1, 100)
+		irradVec := pmap.IrradianceEst(p, n, 1, 50)
 		return NewColor(irradVec.X(), irradVec.Y(), irradVec.Z())
 	}
 	return black
@@ -311,11 +313,9 @@ func (scene Scene) trace(r geom.Ray, depth int, rnd *rand.Rand) Color {
 		irrad := scene.causticPmap.IrradianceEst(p, n, 1, 50)
 		result = result.Plus(NewColor(irrad.X(), irrad.Y(), irrad.Z()))
 
-		/* Global illumination
+		/* Global illumination */
 		r2 := geom.NewRay(p, geom.SampleHemisphereNormal(orientedN, rnd))
 		result = result.Plus(scene.irradiance(scene.globalPmap, r2, 1, rnd))
-		return result
-		*/
 
 		/* Direct illumination */
 		for _, l := range scene.Lights {
@@ -396,7 +396,7 @@ func (scene Scene) tracePhotons(r geom.Ray, depth int, power Color, pmap *Photon
 		// Add roughness/fuzzyness
 		reflected = reflected.Plus(geom.SampleHemisphereNormal(orientedN, rnd).Scale(m.Roughness))
 		r2 := geom.NewRay(p, reflected)
-		scene.tracePhotons(r2, depth+1, f.Times(power), pmap, caustics, rnd)
+		scene.tracePhotons(r2, depth+1, f.Times(power).Scale(1.0/rrp), pmap, caustics, rnd)
 	} else if m.Transparent { // Dielectric material
 		etai, etat := 1.0, m.RefrIndex
 		refrRatio := etai / etat
@@ -416,7 +416,7 @@ func (scene Scene) tracePhotons(r geom.Ray, depth int, power Color, pmap *Photon
 			// Random ray
 			// att := f.Times(power).Scale(1.0 / rrp)
 			r2 := geom.NewRay(p, geom.SampleHemisphereNormal(n, rnd))
-			scene.tracePhotons(r2, depth+1, f.Times(power), pmap, caustics, rnd)
+			scene.tracePhotons(r2, depth+1, f.Times(power).Scale(1.0/rrp), pmap, caustics, rnd)
 		}
 	}
 }

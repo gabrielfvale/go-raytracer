@@ -15,11 +15,13 @@ func main() {
 
 	var width int
 	var samples int
+	var nphotons int
 	var output string
 
-	flag.IntVar(&width, "w", 640, "")
-	flag.IntVar(&samples, "s", 8, "")
-	flag.StringVar(&output, "o", "", "")
+	flag.IntVar(&width, "w", 640, "Scene width.")
+	flag.IntVar(&samples, "s", 8, "Amount of samples per pixel.")
+	flag.IntVar(&nphotons, "p", 100000, "Number of photons per photon map.")
+	flag.StringVar(&output, "o", "", "Output image (PNG).")
 	flag.Parse()
 
 	aspect := 1.0
@@ -52,8 +54,8 @@ func main() {
 		geom.NewVec3(0, 1, 0),
 		40, aspect)
 
-	globalMap := tracer.NewPhotonMap(100000)
-	causticsMap := tracer.NewPhotonMap(100000)
+	globalMap := tracer.NewPhotonMap(nphotons)
+	causticsMap := tracer.NewPhotonMap(nphotons)
 	scene := tracer.NewScene(width, height, cam, objects, &globalMap, &causticsMap)
 
 	if output != "" { // render to image
