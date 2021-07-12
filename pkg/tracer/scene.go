@@ -159,10 +159,6 @@ func (scene Scene) mapPhotons() {
 			scene.tracePhotons(rp, 1, NewColor(1.0, 1.0, 1.0), caustics, true, rnd1)
 		}
 	}
-
-	// Balance photon maps
-	global.Balance()
-	caustics.Balance()
 	// Scale photon power
 	global.ScalePhotonPower(1000.0 / float64(global.maxPhotons))
 	caustics.ScalePhotonPower(1000.0 / float64(caustics.maxPhotons))
@@ -229,7 +225,7 @@ func (scene Scene) irradiance(pmap *PhotonMap, r geom.Ray, depth int, rnd *rand.
 	} else {
 		// Material is diffuse
 		// Direct visualization of photon map
-		irradVec := pmap.IrradianceEst(p, n, 1, 50)
+		irradVec := pmap.IrradianceEst(p, n, 1, 100)
 		return NewColor(irradVec.X(), irradVec.Y(), irradVec.Z())
 	}
 	return black
@@ -414,7 +410,6 @@ func (scene Scene) tracePhotons(r geom.Ray, depth int, power Color, pmap *Photon
 			pmap.Store(att.E, p.E, incident.E)
 		} else { // trace another ray
 			// Random ray
-			// att := f.Times(power).Scale(1.0 / rrp)
 			r2 := geom.NewRay(p, geom.SampleHemisphereNormal(n, rnd))
 			scene.tracePhotons(r2, depth+1, f.Times(power).Scale(1.0/rrp), pmap, caustics, rnd)
 		}

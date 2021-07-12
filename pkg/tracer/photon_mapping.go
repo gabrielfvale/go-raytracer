@@ -1,11 +1,10 @@
 package tracer
 
 import (
-	"fmt"
 	"math"
 
 	"github.com/gabrielfvale/go-raytracer/pkg/geom"
-	"github.com/kyroy/kdtree"
+	"gonum.org/v1/gonum/spatial/kdtree"
 )
 
 // Photon type definition
@@ -16,21 +15,74 @@ type Photon struct {
 	theta, phi uint8
 }
 
-func (p *Photon) Dimensions() int {
-	return 3
+// Compare satisfies the axis comparisons method of the kdtree.Comparable interface.
+func (p Photon) Compare(c kdtree.Comparable, d kdtree.Dim) float64 {
+	q := c.(Photon)
+	if d > 2 {
+		panic("illegal dimension")
+	}
+	return p.pos[d] - q.pos[d]
 }
 
-func (p *Photon) Dimension(i int) float64 {
-	return p.pos[i]
+// Dims returns the number of dimensions to be considered.
+func (p Photon) Dims() int { return 3 }
+
+// Distance returns the distance between the receiver and c.
+func (p Photon) Distance(c kdtree.Comparable) float64 {
+	q := c.(Photon)
+	return dist2(p, q)
 }
 
-func (p *Photon) String() string {
-	return fmt.Sprintf("{%.2f %.2f %.2f}", p.pos[1], p.pos[1], p.pos[2])
+// Dust2 returns the distance between two photons
+func dist2(p, q Photon) float64 {
+	pPos := p.pos
+	qPos := q.pos
+
+	dist1 := pPos[0] - qPos[0]
+	dist2 := dist1 * dist1
+
+	dist1 = pPos[1] - qPos[1]
+	dist2 += dist1 * dist1
+
+	dist1 = pPos[2] - qPos[2]
+	dist2 += dist1 * dist1
+
+	return dist2
+}
+
+// photonList is a collection of the place type that satisfies kdtree.Interface.
+type photonList []Photon
+
+func (p photonList) Index(i int) kdtree.Comparable         { return p[i] }
+func (p photonList) Len() int                              { return len(p) }
+func (p photonList) Pivot(d kdtree.Dim) int                { return plane{photonList: p, Dim: d}.Pivot() }
+func (p photonList) Slice(start, end int) kdtree.Interface { return p[start:end] }
+
+// plane is required to help photonList.
+type plane struct {
+	kdtree.Dim
+	photonList
+}
+
+func (p plane) Less(i, j int) bool {
+	d := p.Dim
+	if d > 2 {
+		panic("illegal dimension")
+	}
+	return p.photonList[i].pos[d] < p.photonList[j].pos[d]
+}
+func (p plane) Pivot() int { return kdtree.Partition(p, kdtree.MedianOfMedians(p)) }
+func (p plane) Slice(start, end int) kdtree.SortSlicer {
+	p.photonList = p.photonList[start:end]
+	return p
+}
+func (p plane) Swap(i, j int) {
+	p.photonList[i], p.photonList[j] = p.photonList[j], p.photonList[i]
 }
 
 // PhotonMap type definition
 type PhotonMap struct {
-	photons       *kdtree.KDTree
+	photons       *kdtree.Tree
 	storedPhotons int
 	maxPhotons    int
 	prevScale     int
@@ -47,8 +99,7 @@ func NewPhotonMap(maxPhotons int) (pmap PhotonMap) {
 	pmap.prevScale = 0
 	pmap.maxPhotons = maxPhotons
 
-	// points := []kdtree.Point
-	pmap.photons = kdtree.New([]kdtree.Point{})
+	pmap.photons = kdtree.New(photonList{}, true)
 
 	// initialize direction conversion tables
 	for i := 0; i < 256; i++ {
@@ -76,30 +127,24 @@ func (pmap *PhotonMap) IrradianceEst(pos, normal geom.Vec3, radius float64, npho
 	point := Photon{pos: pos.E}
 	radius2 := radius * radius
 
-	// locate the nearest photons
-	nearest := pmap.photons.KNN(&point, nphotons)
-	if len(nearest) == 0 {
-		return
-	}
+	var keep kdtree.Keeper
+	keep = kdtree.NewNKeeper(nphotons)
+	pmap.photons.NearestSet(keep, point)
 
-	// Get only nearest that distance <= radius
 	found := 0
-	for ; found < len(nearest); found++ {
-		p := nearest[found].(*Photon)
 
-		pdirf := pmap.PhotonDir(p)
-		ppos := geom.NewVec3(p.pos[0], p.pos[1], p.pos[2])
+	for _, c := range keep.(*kdtree.NKeeper).Heap {
+		p := c.Comparable.(Photon)
+		pdirf := pmap.PhotonDir(&p)
 		pdir := geom.NewVec3(pdirf[0], pdirf[1], pdirf[2])
-		t := ppos.Minus(pos)
-
-		if t.Dot(t) < radius2 {
+		if p.Distance(point) < radius2 {
 			if pdir.Dot(normal) < 0.0 {
 				flux := geom.NewVec3(p.power[0], p.power[1], p.power[2])
 				irrad = irrad.Plus(flux)
+				found++
 			}
 		}
 	}
-	found--
 
 	// if less than 8 photons, return
 	if found < 8 {
@@ -140,36 +185,21 @@ func (pmap *PhotonMap) Store(power, pos, dir [3]float64) {
 	} else {
 		node.phi = uint8(phi)
 	}
-	pmap.photons.Insert(&node)
+	pmap.photons.Insert(node, true)
 }
 
 // ScalePhotonPower is used to scale the power of all
 // photons once they have been emitted from the light source.
 func (pmap *PhotonMap) ScalePhotonPower(scale float64) {
-	photons := pmap.photons.Points()
-	newPhotons := make([]*Photon, pmap.storedPhotons)
-
-	for i := 0; i < pmap.storedPhotons; i++ {
-		conv := photons[i].(*Photon)
-		newPhotons[i] = conv
-	}
-
-	for i := pmap.prevScale; i < pmap.storedPhotons; i++ {
-		newPhotons[i].power[0] *= scale
-		newPhotons[i].power[1] *= scale
-		newPhotons[i].power[2] *= scale
-	}
-
-	var newPoints []kdtree.Point
-	for i := 0; i < pmap.storedPhotons; i++ {
-		newPoints = append(newPoints, newPhotons[i])
-	}
-
-	pmap.photons = kdtree.New(newPoints)
+	var newPhotons photonList
+	pmap.photons.Do(func(c kdtree.Comparable, b *kdtree.Bounding, i int) (done bool) {
+		k := c.(Photon)
+		k.power[0] *= scale
+		k.power[1] *= scale
+		k.power[2] *= scale
+		newPhotons = append(newPhotons, k)
+		return
+	})
+	pmap.photons = kdtree.New(newPhotons, true)
 	pmap.prevScale = pmap.storedPhotons + 1
-}
-
-func (pmap *PhotonMap) Balance() {
-	// fmt.Println("started balancing")
-	pmap.photons.Balance()
 }
