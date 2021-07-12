@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math"
 
+	"github.com/gabrielfvale/go-raytracer/pkg/geom"
 	"github.com/kyroy/kdtree"
 )
 
@@ -98,6 +99,7 @@ func dist2(p1, p2 [3]float64) (d float64) {
 func (pmap *PhotonMap) IrradianceEst(pos, normal [3]float64, maxDist float64, nphotons int) (irrad [3]float64) {
 	irrad[0], irrad[1], irrad[2] = 0.0, 0.0, 0.0
 	point := Photon{pos: pos}
+	radius2 := maxDist * maxDist
 
 	// locate the nearest photons
 	nearest := pmap.photons.KNN(&point, nphotons)
@@ -105,13 +107,25 @@ func (pmap *PhotonMap) IrradianceEst(pos, normal [3]float64, maxDist float64, np
 		return
 	}
 
+	posVec := geom.NewVec3(pos[0], pos[1], pos[2])
+	normalVec := geom.NewVec3(normal[0], normal[1], normal[2])
+
 	// Get only nearest that distance <= maxDist
 	found := 0
 	for ; found < len(nearest); found++ {
-		maxDist2 := maxDist * maxDist
-		nearPos := nearest[found].(*Photon).pos
-		if dist2(pos, nearPos) > maxDist2 {
-			break
+		p := nearest[found].(*Photon)
+
+		pdirf := pmap.PhotonDir(p)
+		ppos := geom.NewVec3(p.pos[0], p.pos[1], p.pos[2])
+		pdir := geom.NewVec3(pdirf[0], pdirf[1], pdirf[2])
+		t := ppos.Minus(posVec)
+
+		if t.Dot(t) < radius2 {
+			if pdir.Dot(normalVec) < 0.0 {
+				irrad[0] += p.power[0]
+				irrad[1] += p.power[1]
+				irrad[2] += p.power[2]
+			}
 		}
 	}
 	found--
@@ -121,27 +135,13 @@ func (pmap *PhotonMap) IrradianceEst(pos, normal [3]float64, maxDist float64, np
 		return
 	}
 
-	// sum radiance for all photons
-	for i := 1; i < len(nearest); i++ {
-		p := nearest[i].(*Photon)
-		pdir := pmap.PhotonDir(p)
-		if (pdir[0]*normal[0] + pdir[1]*normal[1] + pdir[2]*normal[2]) < 0.0 {
-			irrad[0] += p.power[0]
-			irrad[1] += p.power[1]
-			irrad[2] += p.power[2]
-		}
-	}
-
 	// estimate of density
-	/*
-		closest := nearest[found].(*Photon)
-		dist2 := dist2(pos, closest.pos)
-		tmp := (1.0 / math.Pi) / math.Sqrt(dist2)
+	tmp := (1.0 / math.Pi) / radius2
 
-		irrad[0] *= tmp
-		irrad[1] *= tmp
-		irrad[2] *= tmp
-	*/
+	irrad[0] *= tmp
+	irrad[1] *= tmp
+	irrad[2] *= tmp
+
 	return
 }
 

@@ -86,22 +86,23 @@ func (scene Scene) Render(pixels []byte, pitch int, samples int) {
 		e := l.Material().Color
 		area := e.R() + e.G() + e.B()
 		pos := l.Pos()
-		col := NewColor(10.0, 10.0, 10.0)
 		nl := geom.NewVec3(0, -1, 0)
-		// for global.storedPhotons < global.maxPhotons*int(scene.lightArea/area) {
-		// 	rp := geom.NewRay(pos, geom.SampleHemisphereNormal(nl, rnd1))
-		// 	scene.tracePhotons(rp, 1, col, global, false, rnd1)
-		// }
+		fmt.Println("Global photon mapping")
+		for global.storedPhotons < global.maxPhotons*int(scene.lightArea/area) {
+			rp := geom.NewRay(pos, geom.SampleHemisphereNormal(nl, rnd1))
+			scene.tracePhotons(rp, 1, NewColor(15.0, 15.0, 15.0), global, false, rnd1)
+		}
+		fmt.Println("Caustics photon mapping")
 		for caustics.storedPhotons < caustics.maxPhotons*int(scene.lightArea/area) {
 			rp := geom.NewRay(pos, geom.SampleHemisphereNormal(nl, rnd1))
-			scene.tracePhotons(rp, 1, col, caustics, true, rnd1)
+			scene.tracePhotons(rp, 1, NewColor(1.0, 1.0, 1.0), caustics, true, rnd1)
 		}
 	}
 
 	global.Balance()
 	caustics.Balance()
-	global.ScalePhotonPower(1.0 / float64(global.maxPhotons))
-	caustics.ScalePhotonPower(1.0 / float64(caustics.maxPhotons))
+	// global.ScalePhotonPower(1.0 / float64(global.maxPhotons))
+	// caustics.ScalePhotonPower(1.0 / float64(caustics.maxPhotons))
 
 	bpp := pitch / scene.W // bytes-per-pixel
 	worker := func(jobs <-chan int, results chan<- result, rnd *rand.Rand) {
@@ -140,6 +141,7 @@ func (scene Scene) Render(pixels []byte, pitch int, samples int) {
 
 	close(jobs)
 
+	fmt.Println("Rendering scene")
 	for y := 0; y < scene.H; y++ {
 		r := <-results
 		bar.Tick()
@@ -192,6 +194,17 @@ func (scene Scene) trace(r geom.Ray, depth int, rnd *rand.Rand) Color {
 	if n.Dot(incident) >= 0.0 {
 		orientedN = orientedN.Inv()
 	}
+
+	/* Debugging: Global map
+	irrad := scene.globalPmap.IrradianceEst(p.E, n.E, 1, 50)
+	result = result.Plus(NewColor(irrad[0], irrad[1], irrad[2]))
+	return result
+	*/
+
+	/* Debugging: Caustics map */
+	irrad := scene.causticPmap.IrradianceEst(p.E, n.E, 1, 50)
+	result = result.Plus(NewColor(irrad[0], irrad[1], irrad[2]))
+	return result
 
 	// "Normal" material
 	if m.Normal {

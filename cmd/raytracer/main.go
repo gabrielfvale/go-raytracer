@@ -54,8 +54,9 @@ func main() {
 		geom.NewVec3(0, 1, 0),
 		40, aspect)
 
-	pmap := tracer.NewPhotonMap(500000)
-	scene := tracer.NewScene(width, height, cam, objects, &pmap)
+	globalMap := tracer.NewPhotonMap(50000)
+	causticsMap := tracer.NewPhotonMap(50000)
+	scene := tracer.NewScene(width, height, cam, objects, &globalMap, &causticsMap)
 
 	if output != "" { // render to image
 		bpp := int(unsafe.Sizeof(uint32(0)))
