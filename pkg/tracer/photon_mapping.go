@@ -96,10 +96,10 @@ func dist2(p1, p2 [3]float64) (d float64) {
 }
 
 // IrradianceEst returns the computed irradiance estimate at a given surface pos
-func (pmap *PhotonMap) IrradianceEst(pos, normal [3]float64, maxDist float64, nphotons int) (irrad [3]float64) {
-	irrad[0], irrad[1], irrad[2] = 0.0, 0.0, 0.0
-	point := Photon{pos: pos}
-	radius2 := maxDist * maxDist
+func (pmap *PhotonMap) IrradianceEst(pos, normal geom.Vec3, radius float64, nphotons int) (irrad geom.Vec3) {
+	irrad = geom.NewVec3(0.0, 0.0, 0.0)
+	point := Photon{pos: pos.E}
+	radius2 := radius * radius
 
 	// locate the nearest photons
 	nearest := pmap.photons.KNN(&point, nphotons)
@@ -107,10 +107,7 @@ func (pmap *PhotonMap) IrradianceEst(pos, normal [3]float64, maxDist float64, np
 		return
 	}
 
-	posVec := geom.NewVec3(pos[0], pos[1], pos[2])
-	normalVec := geom.NewVec3(normal[0], normal[1], normal[2])
-
-	// Get only nearest that distance <= maxDist
+	// Get only nearest that distance <= radius
 	found := 0
 	for ; found < len(nearest); found++ {
 		p := nearest[found].(*Photon)
@@ -118,13 +115,12 @@ func (pmap *PhotonMap) IrradianceEst(pos, normal [3]float64, maxDist float64, np
 		pdirf := pmap.PhotonDir(p)
 		ppos := geom.NewVec3(p.pos[0], p.pos[1], p.pos[2])
 		pdir := geom.NewVec3(pdirf[0], pdirf[1], pdirf[2])
-		t := ppos.Minus(posVec)
+		t := ppos.Minus(pos)
 
 		if t.Dot(t) < radius2 {
-			if pdir.Dot(normalVec) < 0.0 {
-				irrad[0] += p.power[0]
-				irrad[1] += p.power[1]
-				irrad[2] += p.power[2]
+			if pdir.Dot(normal) < 0.0 {
+				flux := geom.NewVec3(p.power[0], p.power[1], p.power[2])
+				irrad = irrad.Plus(flux)
 			}
 		}
 	}
@@ -137,11 +133,7 @@ func (pmap *PhotonMap) IrradianceEst(pos, normal [3]float64, maxDist float64, np
 
 	// estimate of density
 	tmp := (1.0 / math.Pi) / radius2
-
-	irrad[0] *= tmp
-	irrad[1] *= tmp
-	irrad[2] *= tmp
-
+	irrad = irrad.Scale(tmp)
 	return
 }
 

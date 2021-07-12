@@ -101,8 +101,8 @@ func (scene Scene) Render(pixels []byte, pitch int, samples int) {
 
 	global.Balance()
 	caustics.Balance()
-	// global.ScalePhotonPower(1.0 / float64(global.maxPhotons))
-	// caustics.ScalePhotonPower(1.0 / float64(caustics.maxPhotons))
+	global.ScalePhotonPower(1000.0 / float64(global.maxPhotons))
+	caustics.ScalePhotonPower(1000.0 / float64(caustics.maxPhotons))
 
 	bpp := pitch / scene.W // bytes-per-pixel
 	worker := func(jobs <-chan int, results chan<- result, rnd *rand.Rand) {
@@ -196,15 +196,16 @@ func (scene Scene) trace(r geom.Ray, depth int, rnd *rand.Rand) Color {
 	}
 
 	/* Debugging: Global map
-	irrad := scene.globalPmap.IrradianceEst(p.E, n.E, 1, 50)
+	irrad := scene.globalPmap.IrradianceEst(p, n, 1, 50)
 	result = result.Plus(NewColor(irrad[0], irrad[1], irrad[2]))
 	return result
 	*/
 
-	/* Debugging: Caustics map */
-	irrad := scene.causticPmap.IrradianceEst(p.E, n.E, 1, 50)
-	result = result.Plus(NewColor(irrad[0], irrad[1], irrad[2]))
+	/* Debugging: Caustics map
+	irrad := scene.causticPmap.IrradianceEst(p, n, 1, 50)
+	result = result.Plus(NewColor(irrad.X(), irrad.Y(), irrad.Z()))
 	return result
+	*/
 
 	// "Normal" material
 	if m.Normal {
@@ -241,8 +242,8 @@ func (scene Scene) trace(r geom.Ray, depth int, rnd *rand.Rand) Color {
 	} else {
 		// Material is diffuse
 		// Direct visualization of caustics
-		irrad := scene.causticPmap.IrradianceEst(p.E, n.E, 5, 100)
-		result = result.Plus(NewColor(irrad[0], irrad[1], irrad[2]))
+		irrad := scene.causticPmap.IrradianceEst(p, n, 1, 50)
+		result = result.Plus(NewColor(irrad.X(), irrad.Y(), irrad.Z()))
 		// Direct lighting
 		for _, l := range scene.Lights {
 			pos := l.Pos()
