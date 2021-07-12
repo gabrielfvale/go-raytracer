@@ -28,31 +28,17 @@ func (p *Photon) String() string {
 	return fmt.Sprintf("{%.2f %.2f %.2f}", p.pos[1], p.pos[1], p.pos[2])
 }
 
-// NearestPhotons type definition
-type NearestPhotons struct {
-	max      int
-	found    int
-	got_heap int
-	pos      [3]float64
-	dist2    [2]float64
-	index    []*Photon
-}
-
 // PhotonMap type definition
 type PhotonMap struct {
-	photons           *kdtree.KDTree
-	storedPhotons     int
-	halfStoredPhotons int
-	maxPhotons        int
-	prevScale         int
+	photons       *kdtree.KDTree
+	storedPhotons int
+	maxPhotons    int
+	prevScale     int
 
 	costheta [256]float64
 	sintheta [256]float64
 	cosphi   [256]float64
 	sinphi   [256]float64
-
-	bboxMin [3]float64
-	bboxMax [3]float64
 }
 
 // NewPhotonMap returns a PhotonMap with maxPhotons
@@ -63,8 +49,6 @@ func NewPhotonMap(maxPhotons int) (pmap PhotonMap) {
 
 	// points := []kdtree.Point
 	pmap.photons = kdtree.New([]kdtree.Point{})
-	pmap.bboxMin[0], pmap.bboxMin[1], pmap.bboxMin[2] = 1e8, 1e8, 1e8
-	pmap.bboxMax[0], pmap.bboxMax[1], pmap.bboxMax[2] = -1e8, -1e8, -1e8
 
 	// initialize direction conversion tables
 	for i := 0; i < 256; i++ {
@@ -83,15 +67,6 @@ func (pmap *PhotonMap) PhotonDir(p *Photon) (dir [3]float64) {
 	dir[0] = pmap.sintheta[p.theta] * pmap.cosphi[p.phi]
 	dir[1] = pmap.sintheta[p.theta] * pmap.sinphi[p.phi]
 	dir[2] = pmap.costheta[p.theta]
-	return
-}
-
-func dist2(p1, p2 [3]float64) (d float64) {
-	d = 0.0
-	for i := 0; i < 3; i++ {
-		k := p2[i] - p1[i]
-		d += k * k
-	}
 	return
 }
 
@@ -166,7 +141,6 @@ func (pmap *PhotonMap) Store(power, pos, dir [3]float64) {
 		node.phi = uint8(phi)
 	}
 	pmap.photons.Insert(&node)
-	// fmt.Println("stored photon", node)
 }
 
 // ScalePhotonPower is used to scale the power of all

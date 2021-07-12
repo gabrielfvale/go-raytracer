@@ -3,8 +3,6 @@ package main
 import (
 	"flag"
 	"fmt"
-	"log"
-	"time"
 	"unsafe"
 
 	"github.com/gabrielfvale/go-raytracer/pkg/geom"
@@ -99,13 +97,7 @@ func main() {
 		panic(err)
 	}
 
-	log.Printf("Started rendering (%d samples)", samples)
-	start := time.Now()
-
 	scene.Render(pixels, pitch, samples)
-
-	elapsed := time.Since(start)
-	log.Printf("Rendering took %s", elapsed)
 
 	texture.Update(nil, pixels, pitch)
 	texture.Unlock()

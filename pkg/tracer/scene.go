@@ -1,7 +1,7 @@
 package tracer
 
 import (
-	"fmt"
+	"log"
 	"math"
 	"math/rand"
 	"runtime"
@@ -76,23 +76,25 @@ func (scene Scene) WriteColor(index int, pixels []byte, c Color) {
 // taking the average of the samples and setting the R, G, B
 // values in a pixel byte array.
 func (scene Scene) Render(pixels []byte, pitch int, samples int) {
+	log.Printf("Started rendering (%d samples)", samples)
+	start := time.Now()
 
 	rnd1 := rand.New(rand.NewSource(time.Now().Unix()))
 	global := scene.globalPmap
 	caustics := scene.causticPmap
 
-	fmt.Println("Tracing photons")
+	log.Printf("Tracing photons")
 	for _, l := range scene.Lights {
 		e := l.Material().Color
 		area := e.R() + e.G() + e.B()
 		pos := l.Pos()
 		nl := geom.NewVec3(0, -1, 0)
-		fmt.Println("Global photon mapping")
+		log.Printf("Global photon mapping")
 		for global.storedPhotons < global.maxPhotons*int(scene.lightArea/area) {
 			rp := geom.NewRay(pos, geom.SampleHemisphereNormal(nl, rnd1))
 			scene.tracePhotons(rp, 1, NewColor(15.0, 15.0, 15.0), global, false, rnd1)
 		}
-		fmt.Println("Caustics photon mapping")
+		log.Printf("Caustics photon mapping")
 		for caustics.storedPhotons < caustics.maxPhotons*int(scene.lightArea/area) {
 			rp := geom.NewRay(pos, geom.SampleHemisphereNormal(nl, rnd1))
 			scene.tracePhotons(rp, 1, NewColor(1.0, 1.0, 1.0), caustics, true, rnd1)
@@ -141,7 +143,7 @@ func (scene Scene) Render(pixels []byte, pitch int, samples int) {
 
 	close(jobs)
 
-	fmt.Println("Rendering scene")
+	log.Printf("Rendering scene")
 	for y := 0; y < scene.H; y++ {
 		r := <-results
 		bar.Tick()
@@ -152,6 +154,9 @@ func (scene Scene) Render(pixels []byte, pitch int, samples int) {
 			cursor++
 		}
 	}
+
+	elapsed := time.Since(start)
+	log.Printf("Rendering took %s", elapsed)
 }
 
 func (scene Scene) intersect(r geom.Ray, objs []Hitable) (hit bool, t float64, s Surface) {
