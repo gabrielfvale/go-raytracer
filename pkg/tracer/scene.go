@@ -44,6 +44,7 @@ func NewScene(width, height int, cam Camera, objects []Hitable, globalPmap *Phot
 			e := o.Material().Color
 			lightArea += e.R() + e.G() + e.B()
 		}
+		// The dielectric objects slice is used for the caustics photon map.
 		if m.Transparent {
 			tobjects = append(tobjects, o)
 		}
@@ -58,7 +59,7 @@ func NewScene(width, height int, cam Camera, objects []Hitable, globalPmap *Phot
 		lightArea:   lightArea,
 		globalPmap:  globalPmap,
 		causticPmap: causticPmap,
-		maxDepth:    6,
+		maxDepth:    4,
 	}
 }
 
@@ -79,32 +80,7 @@ func (scene Scene) Render(pixels []byte, pitch int, samples int) {
 	log.Printf("Started rendering (%d samples)", samples)
 	start := time.Now()
 
-	rnd1 := rand.New(rand.NewSource(time.Now().Unix()))
-	global := scene.globalPmap
-	caustics := scene.causticPmap
-
-	log.Printf("Tracing photons")
-	for _, l := range scene.Lights {
-		e := l.Material().Color
-		area := e.R() + e.G() + e.B()
-		pos := l.Pos()
-		nl := geom.NewVec3(0, -1, 0)
-		log.Printf("Global photon mapping")
-		for global.storedPhotons < global.maxPhotons*int(scene.lightArea/area) {
-			rp := geom.NewRay(pos, geom.SampleHemisphereNormal(nl, rnd1))
-			scene.tracePhotons(rp, 1, NewColor(15.0, 15.0, 15.0), global, false, rnd1)
-		}
-		log.Printf("Caustics photon mapping")
-		for caustics.storedPhotons < caustics.maxPhotons*int(scene.lightArea/area) {
-			rp := geom.NewRay(pos, geom.SampleHemisphereNormal(nl, rnd1))
-			scene.tracePhotons(rp, 1, NewColor(1.0, 1.0, 1.0), caustics, true, rnd1)
-		}
-	}
-
-	global.Balance()
-	caustics.Balance()
-	global.ScalePhotonPower(1000.0 / float64(global.maxPhotons))
-	caustics.ScalePhotonPower(1000.0 / float64(caustics.maxPhotons))
+	scene.mapPhotons()
 
 	bpp := pitch / scene.W // bytes-per-pixel
 	worker := func(jobs <-chan int, results chan<- result, rnd *rand.Rand) {
@@ -159,6 +135,39 @@ func (scene Scene) Render(pixels []byte, pitch int, samples int) {
 	log.Printf("Rendering took %s", elapsed)
 }
 
+func (scene Scene) mapPhotons() {
+	rnd1 := rand.New(rand.NewSource(time.Now().Unix()))
+	global := scene.globalPmap
+	caustics := scene.causticPmap
+
+	log.Printf("Tracing photons")
+	for _, l := range scene.Lights {
+		e := l.Material().Color
+		area := e.R() + e.G() + e.B()
+		pos := l.Pos()
+		nl := geom.NewVec3(0, -1, 0)
+		log.Printf("Global photon mapping")
+		for global.storedPhotons < global.maxPhotons*int(scene.lightArea/area) {
+			rp := geom.NewRay(pos, geom.SampleHemisphereNormal(nl, rnd1))
+			scene.tracePhotons(rp, 1, NewColor(15.0, 15.0, 15.0), global, false, rnd1)
+		}
+		log.Printf("Caustics photon mapping")
+		for caustics.storedPhotons < caustics.maxPhotons*int(scene.lightArea/area) {
+			rp := geom.NewRay(pos, geom.SampleHemisphereNormal(nl, rnd1))
+			scene.tracePhotons(rp, 1, NewColor(1.0, 1.0, 1.0), caustics, true, rnd1)
+		}
+	}
+
+	// Balance photon maps
+	global.Balance()
+	caustics.Balance()
+	// Scale photon power
+	global.ScalePhotonPower(1000.0 / float64(global.maxPhotons))
+	caustics.ScalePhotonPower(1000.0 / float64(caustics.maxPhotons))
+}
+
+// Intersect loops over a list of Hitable, returning if there was a hit,
+// the nearest t and the surface hit s
 func (scene Scene) intersect(r geom.Ray, objs []Hitable) (hit bool, t float64, s Surface) {
 	tMin, tMax := bias, math.MaxFloat64
 	t = tMax
@@ -171,6 +180,57 @@ func (scene Scene) intersect(r geom.Ray, objs []Hitable) (hit bool, t float64, s
 		}
 	}
 	return
+}
+
+// Irradiance traces a ray, and estimates a color given a photon map.
+func (scene Scene) irradiance(pmap *PhotonMap, r geom.Ray, depth int, rnd *rand.Rand) Color {
+
+	black := NewColor(0.0, 0.0, 0.0)
+	if depth >= scene.maxDepth {
+		return black
+	}
+
+	hit, tNear, surf := scene.intersect(r, scene.Objects)
+
+	if !hit {
+		return black
+	}
+
+	incident := r.Dir.Unit()
+	p := r.At(tNear)
+	n, m := surf.Surface(p)
+	orientedN := n
+	if n.Dot(incident) >= 0.0 {
+		orientedN = orientedN.Inv()
+	}
+	// BRDF modulator
+	f := m.Color
+
+	if m.Reflectivity > 0 { // Metalic material
+		reflected := incident.Reflect(n)
+		// Add roughness/fuzzyness
+		reflected = reflected.Plus(geom.SampleHemisphereNormal(n, rnd).Scale(m.Roughness))
+		if reflected.Dot(n) > 0 {
+			r2 := geom.NewRay(p, reflected)
+			return f.Times(scene.irradiance(pmap, r2, depth+1, rnd))
+		}
+	} else if m.Transparent { // Dielectric material
+		etai, etat := 1.0, m.RefrIndex
+		refrRatio := etai / etat
+
+		refracts, rayDir := incident.Refract(n, refrRatio)
+		if !refracts {
+			rayDir = incident.Reflect(n)
+		}
+		r2 := geom.NewRay(p, rayDir)
+		return scene.irradiance(pmap, r2, depth+1, rnd)
+	} else {
+		// Material is diffuse
+		// Direct visualization of photon map
+		irradVec := pmap.IrradianceEst(p, n, 1, 100)
+		return NewColor(irradVec.X(), irradVec.Y(), irradVec.Z())
+	}
+	return black
 }
 
 // trace checks if a ray intersects a list of objects,
@@ -202,7 +262,7 @@ func (scene Scene) trace(r geom.Ray, depth int, rnd *rand.Rand) Color {
 
 	/* Debugging: Global map
 	irrad := scene.globalPmap.IrradianceEst(p, n, 1, 50)
-	result = result.Plus(NewColor(irrad[0], irrad[1], irrad[2]))
+	result = result.Plus(NewColor(irrad.X(), irrad.Y(), irrad.Z()))
 	return result
 	*/
 
@@ -246,10 +306,18 @@ func (scene Scene) trace(r geom.Ray, depth int, rnd *rand.Rand) Color {
 		result = result.Plus(scene.trace(r2, depth+1, rnd))
 	} else {
 		// Material is diffuse
-		// Direct visualization of caustics
+
+		/* Direct visualization of caustics */
 		irrad := scene.causticPmap.IrradianceEst(p, n, 1, 50)
 		result = result.Plus(NewColor(irrad.X(), irrad.Y(), irrad.Z()))
-		// Direct lighting
+
+		/* Global illumination
+		r2 := geom.NewRay(p, geom.SampleHemisphereNormal(orientedN, rnd))
+		result = result.Plus(scene.irradiance(scene.globalPmap, r2, 1, rnd))
+		return result
+		*/
+
+		/* Direct illumination */
 		for _, l := range scene.Lights {
 			pos := l.Pos()
 			dir := pos.Minus(p).Unit()
@@ -277,9 +345,9 @@ func (scene Scene) trace(r geom.Ray, depth int, rnd *rand.Rand) Color {
 	return result
 }
 
-// tracePhotons checks if a ray intersects a list of objects,
-// returning their color. If there is no hit,
-// returns a background gradient
+// tracePhotons traces photons emitted from a light source,
+// storing them if the surface hit is diffuse, and bouncing
+// them otherwise.
 func (scene Scene) tracePhotons(r geom.Ray, depth int, power Color, pmap *PhotonMap, caustics bool, rnd *rand.Rand) {
 	if depth >= scene.maxDepth {
 		return

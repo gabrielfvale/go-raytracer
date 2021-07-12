@@ -52,8 +52,8 @@ func main() {
 		geom.NewVec3(0, 1, 0),
 		40, aspect)
 
-	globalMap := tracer.NewPhotonMap(50000)
-	causticsMap := tracer.NewPhotonMap(50000)
+	globalMap := tracer.NewPhotonMap(100000)
+	causticsMap := tracer.NewPhotonMap(100000)
 	scene := tracer.NewScene(width, height, cam, objects, &globalMap, &causticsMap)
 
 	if output != "" { // render to image
