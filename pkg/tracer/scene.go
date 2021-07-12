@@ -15,12 +15,15 @@ const bias = 0.001
 
 // Type definition for Scene
 type Scene struct {
-	W, H      int
-	Cam       Camera
-	Objects   []Hitable
-	Lights    []Hitable
-	lightArea float64
-	pmap      *PhotonMap
+	W, H        int
+	Cam         Camera
+	Objects     []Hitable
+	tObjects    []Hitable
+	Lights      []Hitable
+	lightArea   float64
+	globalPmap  *PhotonMap
+	causticPmap *PhotonMap
+	maxDepth    int
 }
 
 type result struct {
@@ -29,10 +32,11 @@ type result struct {
 }
 
 // NewScene returns a Scene, given width, height and object slice
-func NewScene(width, height int, cam Camera, objects []Hitable, pmap *PhotonMap) Scene {
+func NewScene(width, height int, cam Camera, objects []Hitable, globalPmap *PhotonMap, causticPmap *PhotonMap) Scene {
 	var lights []Hitable
+	var tobjects []Hitable
 	var lightArea float64 = 0.0
-	// pre compute lights
+	// pre compute lights and dieletric objects
 	for _, o := range objects {
 		m := o.Material()
 		if m.Emittance > 0 {
@@ -40,8 +44,22 @@ func NewScene(width, height int, cam Camera, objects []Hitable, pmap *PhotonMap)
 			e := o.Material().Color
 			lightArea += e.R() + e.G() + e.B()
 		}
+		if m.Transparent {
+			tobjects = append(tobjects, o)
+		}
 	}
-	return Scene{W: width, H: height, Cam: cam, Objects: objects, Lights: lights, lightArea: lightArea, pmap: pmap}
+	return Scene{
+		W:           width,
+		H:           height,
+		Cam:         cam,
+		Objects:     objects,
+		tObjects:    tobjects,
+		Lights:      lights,
+		lightArea:   lightArea,
+		globalPmap:  globalPmap,
+		causticPmap: causticPmap,
+		maxDepth:    6,
+	}
 }
 
 // WriteColor writes a Color to a pixel byte array
@@ -54,53 +72,36 @@ func (scene Scene) WriteColor(index int, pixels []byte, c Color) {
 	pixels[index+2] = r
 }
 
-func randSample(n geom.Vec3) geom.Vec3 {
-	/*
-		Vec nl(0,-1,0);
-		float r1=2*M_PI*myrand(), r2=myrand(), r2s=sqrt(r2);
-		Vec w=nl, u=((fabs(w.x)>.1?Vec(0,1,0):Vec(1,0,0))%w).norm(), v=w%u;
-		Vec d = (u*cos(r1)*r2s + v*sin(r1)*r2s + w*sqrt(1-r2)).norm();
-	*/
-	r1 := 2 * math.Pi * rand.Float64()
-	r2 := rand.Float64()
-	r2s := math.Sqrt(r2)
-	w := n
-	u := geom.NewVec3(1, 0, 0)
-	if math.Abs(w.X()) > 0.1 {
-		u = geom.NewVec3(0, 1, 0)
-	}
-	u = u.Cross(w).Unit()
-	v := w.Cross(u)
-
-	uc := u.Scale(math.Cos(r1) * r2s)
-	vc := v.Scale(math.Sin(r1) * r2s)
-	wc := w.Scale(math.Sqrt(1 - r2))
-	return uc.Plus(vc).Plus(wc).Unit()
-	// return u.Scale(math.Cos(r1) * r2s).Plus(v.Scale(math.Sin(r1) * r2s)).Plus(w.Scale(math.Sqrt(1 - r2))).Unit()
-}
-
 // Render loops over the width and height, and for each sample
 // taking the average of the samples and setting the R, G, B
 // values in a pixel byte array.
 func (scene Scene) Render(pixels []byte, pitch int, samples int) {
+
 	rnd1 := rand.New(rand.NewSource(time.Now().Unix()))
-	pmap := scene.pmap
-	// pbar := util.NewProgress(0, pmap.maxPhotons)
-	fmt.Println("tracing photons")
+	global := scene.globalPmap
+	caustics := scene.causticPmap
+
+	fmt.Println("Tracing photons")
 	for _, l := range scene.Lights {
 		e := l.Material().Color
 		area := e.R() + e.G() + e.B()
-		for pmap.storedPhotons < pmap.maxPhotons*int(scene.lightArea/area) {
-			pos := l.Pos()
-			col := NewColor(10.0, 10.0, 10.0)
-			nl := geom.NewVec3(0, -1, 0)
-			rp := geom.NewRay(pos, randSample(nl))
-			scene.tracePhotons(rp, 4, col, rnd1)
+		pos := l.Pos()
+		col := NewColor(10.0, 10.0, 10.0)
+		nl := geom.NewVec3(0, -1, 0)
+		// for global.storedPhotons < global.maxPhotons*int(scene.lightArea/area) {
+		// 	rp := geom.NewRay(pos, geom.SampleHemisphereNormal(nl, rnd1))
+		// 	scene.tracePhotons(rp, 1, col, global, false, rnd1)
+		// }
+		for caustics.storedPhotons < caustics.maxPhotons*int(scene.lightArea/area) {
+			rp := geom.NewRay(pos, geom.SampleHemisphereNormal(nl, rnd1))
+			scene.tracePhotons(rp, 1, col, caustics, true, rnd1)
 		}
 	}
 
-	pmap.Balance()
-	pmap.ScalePhotonPower(1.0 / float64(pmap.maxPhotons))
+	global.Balance()
+	caustics.Balance()
+	global.ScalePhotonPower(1.0 / float64(global.maxPhotons))
+	caustics.ScalePhotonPower(1.0 / float64(caustics.maxPhotons))
 
 	bpp := pitch / scene.W // bytes-per-pixel
 	worker := func(jobs <-chan int, results chan<- result, rnd *rand.Rand) {
@@ -113,7 +114,7 @@ func (scene Scene) Render(pixels []byte, pitch int, samples int) {
 					u := (float64(x) + rnd.Float64()) / float64(scene.W)
 					v := (float64(y) + rnd.Float64()) / float64(scene.H)
 					r := scene.Cam.Ray(u, v)
-					c = c.Plus(scene.trace(r, 5, rnd))
+					c = c.Plus(scene.trace(r, 1, rnd))
 				}
 				c = c.Scale(1 / float64(samples)).Gamma(2)
 				c = c.Clamp()
@@ -151,11 +152,11 @@ func (scene Scene) Render(pixels []byte, pitch int, samples int) {
 	}
 }
 
-func (scene Scene) intersect(r geom.Ray) (hit bool, t float64, s Surface) {
+func (scene Scene) intersect(r geom.Ray, objs []Hitable) (hit bool, t float64, s Surface) {
 	tMin, tMax := bias, math.MaxFloat64
 	t = tMax
 	hit = false
-	for _, o := range scene.Objects {
+	for _, o := range objs {
 		if ht, hs := o.Hit(r, tMin, t); ht > 0.0 {
 			hit = true
 			t = ht
@@ -165,15 +166,15 @@ func (scene Scene) intersect(r geom.Ray) (hit bool, t float64, s Surface) {
 	return
 }
 
-// Color checks if a ray intersects a list of objects,
+// trace checks if a ray intersects a list of objects,
 // returning their color. If there is no hit,
-// returns a background gradient
+// returns a black background
 func (scene Scene) trace(r geom.Ray, depth int, rnd *rand.Rand) Color {
-	if depth <= 0 {
+	if depth >= scene.maxDepth {
 		return NewColor(0.0, 0.0, 0.0)
 	}
 
-	hit, tNear, surf := scene.intersect(r)
+	hit, tNear, surf := scene.intersect(r, scene.Objects)
 
 	if !hit {
 		// t := 0.5 * (r.Dir.Y() + 1.0)
@@ -191,12 +192,6 @@ func (scene Scene) trace(r geom.Ray, depth int, rnd *rand.Rand) Color {
 	if n.Dot(incident) >= 0.0 {
 		orientedN = orientedN.Inv()
 	}
-	// n = n.Unit()
-
-	irrad := scene.pmap.IrradianceEst(p.E, orientedN.E, 10, 100)
-	// fmt.Println(irrad)
-	return NewColor(irrad[0], irrad[1], irrad[2])
-	result = result.Plus(NewColor(irrad[0], irrad[1], irrad[2]))
 
 	// "Normal" material
 	if m.Normal {
@@ -204,21 +199,21 @@ func (scene Scene) trace(r geom.Ray, depth int, rnd *rand.Rand) Color {
 	}
 
 	if m.Emittance > 0 {
-		result = result.Plus(m.Color.Scale(m.Emittance))
+		result = m.Color.Scale(m.Emittance)
 	} else if m.Lambert { // Lambertian material
-		scattered := n.Unit().Plus(geom.SampleHemisphere(rnd))
+		scattered := geom.SampleHemisphereNormal(n, rnd)
 		if scattered.NearZero() {
 			scattered = n
 		}
 		r2 := geom.NewRay(p, scattered)
-		result = result.Plus(scene.trace(r2, depth-1, rnd).Times(m.Color))
+		result = result.Plus(scene.trace(r2, depth+1, rnd).Times(m.Color))
 	} else if m.Reflectivity > 0 { // Metalic material
 		reflected := incident.Reflect(n)
 		// Add roughness/fuzzyness
-		reflected = reflected.Plus(geom.SampleHemisphereCos(rnd).Scale(m.Roughness))
+		reflected = reflected.Plus(geom.SampleHemisphereNormal(n, rnd).Scale(m.Roughness))
 		if reflected.Dot(n) > 0 {
 			r2 := geom.NewRay(p, reflected)
-			result = result.Plus(scene.trace(r2, depth-1, rnd).Times(m.Color).Scale(m.Reflectivity))
+			result = result.Plus(scene.trace(r2, depth+1, rnd).Times(m.Color).Scale(m.Reflectivity))
 		}
 	} else if m.Transparent { // Dielectric material
 		etai, etat := 1.0, m.RefrIndex
@@ -229,11 +224,13 @@ func (scene Scene) trace(r geom.Ray, depth int, rnd *rand.Rand) Color {
 			rayDir = incident.Reflect(n)
 		}
 		r2 := geom.NewRay(p, rayDir)
-		result = result.Plus(scene.trace(r2, depth-1, rnd))
+		result = result.Plus(scene.trace(r2, depth+1, rnd))
 	} else {
-		// calc diffuse
-		irrad := scene.pmap.IrradianceEst(p.E, orientedN.E, 5, 100)
+		// Material is diffuse
+		// Direct visualization of caustics
+		irrad := scene.causticPmap.IrradianceEst(p.E, n.E, 5, 100)
 		result = result.Plus(NewColor(irrad[0], irrad[1], irrad[2]))
+		// Direct lighting
 		for _, l := range scene.Lights {
 			pos := l.Pos()
 			dir := pos.Minus(p).Unit()
@@ -261,16 +258,21 @@ func (scene Scene) trace(r geom.Ray, depth int, rnd *rand.Rand) Color {
 	return result
 }
 
-// Color checks if a ray intersects a list of objects,
+// tracePhotons checks if a ray intersects a list of objects,
 // returning their color. If there is no hit,
 // returns a background gradient
-func (scene Scene) tracePhotons(r geom.Ray, depth int, power Color, rnd *rand.Rand) {
-	// fmt.Println(depth)
-	if depth <= 0 {
+func (scene Scene) tracePhotons(r geom.Ray, depth int, power Color, pmap *PhotonMap, caustics bool, rnd *rand.Rand) {
+	if depth >= scene.maxDepth {
 		return
 	}
 
-	hit, tNear, surf := scene.intersect(r)
+	if caustics && depth == 1 {
+		if hit, _, _ := scene.intersect(r, scene.tObjects); !hit {
+			return
+		}
+	}
+
+	hit, tNear, surf := scene.intersect(r, scene.Objects)
 
 	if !hit {
 		return
@@ -279,6 +281,11 @@ func (scene Scene) tracePhotons(r geom.Ray, depth int, power Color, rnd *rand.Ra
 	incident := r.Dir.Unit()
 	p := r.At(tNear)
 	n, m := surf.Surface(p)
+
+	if caustics && depth == 1 && !m.Transparent {
+		return
+	}
+
 	// Properly oriented normal
 	orientedN := n
 	if n.Dot(incident) >= 0.0 {
@@ -300,9 +307,9 @@ func (scene Scene) tracePhotons(r geom.Ray, depth int, power Color, rnd *rand.Ra
 	} else if m.Reflectivity > 0 { // Metalic material
 		reflected := incident.Reflect(n)
 		// Add roughness/fuzzyness
-		reflected = reflected.Plus(randSample(orientedN).Scale(m.Roughness))
+		reflected = reflected.Plus(geom.SampleHemisphereNormal(orientedN, rnd).Scale(m.Roughness))
 		r2 := geom.NewRay(p, reflected)
-		scene.tracePhotons(r2, depth-1, f.Times(power), rnd)
+		scene.tracePhotons(r2, depth+1, f.Times(power), pmap, caustics, rnd)
 	} else if m.Transparent { // Dielectric material
 		etai, etat := 1.0, m.RefrIndex
 		refrRatio := etai / etat
@@ -312,18 +319,17 @@ func (scene Scene) tracePhotons(r geom.Ray, depth int, power Color, rnd *rand.Ra
 			rayDir = incident.Reflect(n)
 		}
 		r2 := geom.NewRay(p, rayDir)
-		scene.tracePhotons(r2, depth-1, power, rnd)
+		scene.tracePhotons(r2, depth+1, power, pmap, caustics, rnd)
 	} else {
-
 		if rnd.Float64() < rrp { // absorb photon
 			// fmt.Println("absorb photon", depth)
 			att := f.Times(power).Scale(1.0 / (1.0 - rrp))
-			scene.pmap.Store(att.E, p.E, incident.E)
+			pmap.Store(att.E, p.E, incident.E)
 		} else { // trace another ray
 			// Random ray
 			// att := f.Times(power).Scale(1.0 / rrp)
-			r2 := geom.NewRay(p, randSample(orientedN))
-			scene.tracePhotons(r2, depth-1, f.Times(power), rnd)
+			r2 := geom.NewRay(p, geom.SampleHemisphereNormal(n, rnd))
+			scene.tracePhotons(r2, depth+1, f.Times(power), pmap, caustics, rnd)
 		}
 	}
 }

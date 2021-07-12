@@ -199,6 +199,24 @@ func SampleHemisphereCos(rnd *rand.Rand) Vec3 {
 	return NewVec3(x, y, z).Unit()
 }
 
+func SampleHemisphereNormal(n Vec3, rnd *rand.Rand) Vec3 {
+	r1 := 2 * math.Pi * rnd.Float64()
+	r2 := rnd.Float64()
+	r2s := math.Sqrt(r2)
+	w := n
+	u := NewVec3(1, 0, 0)
+	if math.Abs(w.X()) > 0.1 {
+		u = NewVec3(0, 1, 0)
+	}
+	u = u.Cross(w).Unit()
+	v := w.Cross(u)
+
+	uc := u.Scale(math.Cos(r1) * r2s)
+	vc := v.Scale(math.Sin(r1) * r2s)
+	wc := w.Scale(math.Sqrt(1 - r2))
+	return uc.Plus(vc).Plus(wc).Unit()
+}
+
 // IStream streams in space-separated Vec3 values from a Reader
 func (v Vec3) IStream(r io.Reader) error {
 	_, err := fmt.Fscan(r, v.X(), v.Y(), v.Z())
