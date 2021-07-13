@@ -132,15 +132,18 @@ func (pmap *PhotonMap) IrradianceEst(pos, normal geom.Vec3, radius float64, npho
 	pmap.photons.NearestSet(keep, point)
 
 	found := 0
-
+	// r2 is the squared distance to the nth nearest photon
+	r2 := 0.0
 	for _, c := range keep.(*kdtree.NKeeper).Heap {
 		p := c.Comparable.(Photon)
-		pdirf := pmap.PhotonDir(&p)
-		pdir := geom.NewVec3(pdirf[0], pdirf[1], pdirf[2])
-		if p.Distance(point) < radius2 {
+		dist2 := p.Distance(point)
+		if dist2 < radius2 {
+			pdirf := pmap.PhotonDir(&p)
+			pdir := geom.NewVec3(pdirf[0], pdirf[1], pdirf[2])
 			if pdir.Dot(normal) < 0.0 {
 				flux := geom.NewVec3(p.power[0], p.power[1], p.power[2])
 				irrad = irrad.Plus(flux)
+				r2 = dist2
 				found++
 			}
 		}
@@ -152,7 +155,7 @@ func (pmap *PhotonMap) IrradianceEst(pos, normal geom.Vec3, radius float64, npho
 	}
 
 	// estimate of density
-	tmp := (1.0 / math.Pi) / radius2
+	tmp := (1.0 / math.Pi) / r2
 	irrad = irrad.Scale(tmp)
 	return
 }
