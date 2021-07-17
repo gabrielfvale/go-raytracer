@@ -126,6 +126,7 @@ func (pmap *PhotonMap) IrradianceEst(pos, normal geom.Vec3, radius float64, npho
 	irrad = geom.NewVec3(0.0, 0.0, 0.0)
 	point := Photon{pos: pos.E}
 	radius2 := radius * radius
+	useAllPhotons := radius == 0.0
 
 	var keep kdtree.Keeper
 	keep = kdtree.NewNKeeper(nphotons)
@@ -137,7 +138,7 @@ func (pmap *PhotonMap) IrradianceEst(pos, normal geom.Vec3, radius float64, npho
 	for _, c := range keep.(*kdtree.NKeeper).Heap {
 		p := c.Comparable.(Photon)
 		dist2 := p.Distance(point)
-		if dist2 < radius2 {
+		if useAllPhotons || dist2 < radius2 {
 			pdirf := pmap.PhotonDir(&p)
 			pdir := geom.NewVec3(pdirf[0], pdirf[1], pdirf[2])
 			if pdir.Dot(normal) < 0.0 {
@@ -155,7 +156,7 @@ func (pmap *PhotonMap) IrradianceEst(pos, normal geom.Vec3, radius float64, npho
 	}
 
 	// estimate of density
-	tmp := (1.0 / math.Pi) / r2
+	tmp := 1.0 / (math.Pi * r2)
 	irrad = irrad.Scale(tmp)
 	return
 }

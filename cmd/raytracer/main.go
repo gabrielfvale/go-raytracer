@@ -32,7 +32,7 @@ func main() {
 	matRed := tracer.DiffuseMaterial(tracer.NewColor(0.65, 0.05, 0.05))
 	matGreen := tracer.DiffuseMaterial(tracer.NewColor(0.12, 0.45, 0.15))
 	matWhite := tracer.DiffuseMaterial(tracer.NewColor(0.73, 0.73, 0.73))
-	matLight := tracer.LightMaterial(tracer.NewColor(0.8, 0.8, 0.8), 1)
+	matLight := tracer.LightMaterial(tracer.NewColor(0.2, 0.2, 0.2), 1)
 	matGlass := tracer.DielectricMaterial(1.53)
 	matMirror := tracer.MetalicMaterial(tracer.NewColor(1, 1, 1), 1, 0)
 	// matNormal := tracer.NormalMaterial()

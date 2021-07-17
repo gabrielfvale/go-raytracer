@@ -225,7 +225,7 @@ func (scene Scene) irradiance(pmap *PhotonMap, r geom.Ray, depth int, rnd *rand.
 	} else {
 		// Material is diffuse
 		// Direct visualization of photon map
-		irradVec := pmap.IrradianceEst(p, n, 1, 100)
+		irradVec := pmap.IrradianceEst(p, n, 0, 100)
 		return NewColor(irradVec.X(), irradVec.Y(), irradVec.Z())
 	}
 	return black
@@ -259,13 +259,13 @@ func (scene Scene) trace(r geom.Ray, depth int, rnd *rand.Rand) Color {
 	}
 
 	/* Debugging: Global map
-	irrad := scene.globalPmap.IrradianceEst(p, n, 1, 50)
+	irrad := scene.globalPmap.IrradianceEst(p, n, 0, 50)
 	result = result.Plus(NewColor(irrad.X(), irrad.Y(), irrad.Z()))
 	return result
 	*/
 
 	/* Debugging: Caustics map
-	irrad := scene.causticPmap.IrradianceEst(p, n, 1, 50)
+	irrad := scene.causticPmap.IrradianceEst(p, n, 0, 50)
 	result = result.Plus(NewColor(irrad.X(), irrad.Y(), irrad.Z()))
 	return result
 	*/
@@ -305,18 +305,24 @@ func (scene Scene) trace(r geom.Ray, depth int, rnd *rand.Rand) Color {
 	} else {
 		// Material is diffuse
 
-		/* Direct visualization of caustics */
-		irrad := scene.causticPmap.IrradianceEst(p, n, 1, 50)
-		result = result.Plus(NewColor(irrad.X(), irrad.Y(), irrad.Z()))
+		const BRDF float64 = 1 / math.Pi
+		irrad := geom.NewVec3(0.0, 0.0, 0.0)
 
-		/* Global illumination */
-		r2 := geom.NewRay(p, geom.SampleHemisphereNormal(orientedN, rnd))
-		result = result.Plus(scene.irradiance(scene.globalPmap, r2, 1, rnd))
+		/* Caustics */
+		irrad = irrad.Plus(scene.causticPmap.IrradianceEst(p, n, 1, 100).Scale(BRDF))
+
+		/* Global illumination
+		irrad = irrad.Plus(scene.globalPmap.IrradianceEst(p, n, 0, 100).Scale(BRDF))
+		*/
+
+		irradColor := Color{Vec3: irrad}
+		result = result.Plus(irradColor.Times(m.Color))
 
 		/* Direct illumination */
 		for _, l := range scene.Lights {
 			pos := l.Pos()
 			dir := pos.Minus(p).Unit()
+			power := l.Material().Color
 			fd := n.Dot(dir)
 			if fd < 0 {
 				fd = 0
@@ -335,7 +341,7 @@ func (scene Scene) trace(r geom.Ray, depth int, rnd *rand.Rand) Color {
 					tNear = ht
 				}
 			}
-			result = result.Plus(m.Color.Scale(fd).Scale(visible))
+			result = result.Plus(m.Color.Scale(fd).Times(power).Scale(visible))
 		}
 	}
 	return result
@@ -392,7 +398,7 @@ func (scene Scene) tracePhotons(r geom.Ray, depth int, power Color, pmap *Photon
 		// Add roughness/fuzzyness
 		reflected = reflected.Plus(geom.SampleHemisphereNormal(orientedN, rnd).Scale(m.Roughness))
 		r2 := geom.NewRay(p, reflected)
-		scene.tracePhotons(r2, depth+1, f.Times(power).Scale(1.0/rrp), pmap, caustics, rnd)
+		scene.tracePhotons(r2, depth+1, f.Times(power), pmap, caustics, rnd)
 	} else if m.Transparent { // Dielectric material
 		etai, etat := 1.0, m.RefrIndex
 		refrRatio := etai / etat
