@@ -59,7 +59,7 @@ func NewScene(width, height int, cam Camera, objects []Hitable, globalPmap *Phot
 		lightArea:   lightArea,
 		globalPmap:  globalPmap,
 		causticPmap: causticPmap,
-		maxDepth:    4,
+		maxDepth:    6,
 	}
 }
 
@@ -80,7 +80,7 @@ func (scene Scene) Render(pixels []byte, pitch int, samples int) {
 	log.Printf("Started rendering (%d samples)", samples)
 	start := time.Now()
 
-	scene.mapPhotons()
+	// scene.mapPhotons()
 
 	bpp := pitch / scene.W // bytes-per-pixel
 	worker := func(jobs <-chan int, results chan<- result, rnd *rand.Rand) {
@@ -305,18 +305,19 @@ func (scene Scene) trace(r geom.Ray, depth int, rnd *rand.Rand) Color {
 	} else {
 		// Material is diffuse
 
+		/* Photon mapping
 		const BRDF float64 = 1 / math.Pi
 		irrad := geom.NewVec3(0.0, 0.0, 0.0)
 
-		/* Caustics */
+		// Caustics
 		irrad = irrad.Plus(scene.causticPmap.IrradianceEst(p, n, 1, 100).Scale(BRDF))
 
-		/* Global illumination
+		// Global illumination
 		irrad = irrad.Plus(scene.globalPmap.IrradianceEst(p, n, 0, 100).Scale(BRDF))
-		*/
 
 		irradColor := Color{Vec3: irrad}
 		result = result.Plus(irradColor.Times(m.Color))
+		*/
 
 		/* Direct illumination */
 		for _, l := range scene.Lights {

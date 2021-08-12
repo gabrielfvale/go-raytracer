@@ -29,16 +29,16 @@ func main() {
 
 	// fmt.Println(width, height)
 
-	matRed := tracer.DiffuseMaterial(tracer.NewColor(0.65, 0.05, 0.05))
-	matGreen := tracer.DiffuseMaterial(tracer.NewColor(0.12, 0.45, 0.15))
-	matWhite := tracer.DiffuseMaterial(tracer.NewColor(0.73, 0.73, 0.73))
-	matLight := tracer.LightMaterial(tracer.NewColor(0.2, 0.2, 0.2), 1)
+	matRed := tracer.LambertMaterial(tracer.NewColor(0.65, 0.05, 0.05))
+	matGreen := tracer.LambertMaterial(tracer.NewColor(0.12, 0.45, 0.15))
+	matWhite := tracer.LambertMaterial(tracer.NewColor(0.73, 0.73, 0.73))
+	matLight := tracer.LightMaterial(tracer.NewColor(0.2, 0.2, 0.2), 10)
 	matGlass := tracer.DielectricMaterial(1.53)
 	matMirror := tracer.MetalicMaterial(tracer.NewColor(1, 1, 1), 1, 0)
 	// matNormal := tracer.NormalMaterial()
 
 	objects := []tracer.Hitable{
-		tracer.NewAABB(geom.NewVec3(213, 548, 227), geom.NewVec3(343, 548.1, 332), matLight),
+		tracer.NewAABB(geom.NewVec3(113, 548, 127), geom.NewVec3(443, 548.1, 432), matLight),
 		tracer.NewAABB(geom.NewVec3(0, 0, 0), geom.NewVec3(555, 0.1, 555), matWhite),     // floor
 		tracer.NewAABB(geom.NewVec3(0, 555, 0), geom.NewVec3(555, 555.1, 555), matWhite), // ceiling
 		tracer.NewAABB(geom.NewVec3(0, 0, 555), geom.NewVec3(555, 555, 555.1), matWhite), // back wall
