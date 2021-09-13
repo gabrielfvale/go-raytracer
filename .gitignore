@@ -15,5 +15,5 @@
 # vendor/
 
 # Image files
-*.ppm
-*.png
+output/*.ppm
+output/*.png

@@ -63,7 +63,7 @@ func main() {
 		pitch := bpp * height
 		pixels := make([]uint8, width*pitch)
 		scene.Render(pixels, pitch, samples)
-		util.SaveToImage(output, width, height, pixels)
+		util.SaveToImage("output/" + output, width, height, pixels)
 		return
 	}
 
